@@ -1,0 +1,28 @@
+{
+  "name": "@openscut/agents",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Demo agent scenarios and orchestration for the SCUT v1 reveal demo.",
+  "license": "MIT",
+  "author": "Doug Hardman <doug@mrdoug.com>",
+  "homepage": "https://openscut.ai",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/douglashardman/openscut.git",
+    "directory": "packages/agents"
+  },
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "lint": "eslint src test --no-error-on-unmatched-pattern",
+    "dev": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@openscut/core": "workspace:*"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

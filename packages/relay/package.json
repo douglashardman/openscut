@@ -1,0 +1,35 @@
+{
+  "name": "scut-relay",
+  "version": "0.1.0",
+  "description": "SCUT relay daemon. Store-and-forward for encrypted envelopes.",
+  "license": "MIT",
+  "author": "Doug Hardman <doug@mrdoug.com>",
+  "homepage": "https://openscut.ai",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/douglashardman/openscut.git",
+    "directory": "packages/relay"
+  },
+  "type": "module",
+  "bin": {
+    "scut-relay": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "lint": "eslint src test --no-error-on-unmatched-pattern",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@openscut/core": "workspace:*"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

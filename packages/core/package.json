@@ -1,0 +1,36 @@
+{
+  "name": "@openscut/core",
+  "version": "0.1.0",
+  "description": "Core client library for the SCUT protocol. Envelope construction, encryption, signing, relay communication.",
+  "license": "MIT",
+  "author": "Doug Hardman <doug@mrdoug.com>",
+  "homepage": "https://openscut.ai",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/douglashardman/openscut.git",
+    "directory": "packages/core"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint src test --no-error-on-unmatched-pattern"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
