@@ -45,6 +45,17 @@ export interface ScutClientOptions {
   /** Explicit relay override for the sender's own inbox. If omitted, the client
    *  resolves its own SII document and uses its relay list. */
   relays?: readonly string[];
+  /**
+   * Forces outbound pushes to the listed relays instead of the recipient's
+   * resolved relay list. Intended for dev / demo environments where the
+   * recipient's on-chain SII document advertises a relay that is not yet
+   * reachable (e.g. relay.openscut.ai pre-deployment) but the sender and
+   * recipient are both connected to an in-process or local relay. The
+   * envelope's encryption and signature are unchanged; only the transport
+   * endpoint differs. In production, agents follow the recipient's
+   * advertised relay list and this option stays unset.
+   */
+  outboundRelayOverride?: readonly string[];
   fetchImpl?: typeof fetch;
 }
 
@@ -76,9 +87,11 @@ export class ScutClient {
       ttlSeconds: params.ttlSeconds,
     });
 
-    const sorted = [...recipientDoc.relays].sort((a, b) => a.priority - b.priority);
+    const routeList = this.opts.outboundRelayOverride
+      ? this.opts.outboundRelayOverride.map((host) => ({ host, priority: 0 }))
+      : [...recipientDoc.relays].sort((a, b) => a.priority - b.priority);
     const attempts: Array<{ relay: string; status: number; body: string }> = [];
-    for (const relay of sorted) {
+    for (const relay of routeList) {
       const url = this.relayUrl(relay.host, '/scut/v1/push');
       const res = await this.fetch(url, {
         method: 'POST',

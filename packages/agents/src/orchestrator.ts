@@ -162,6 +162,14 @@ async function buildAgent(
     encryptionPrivateKey: keys.encryption.privateKey,
     encryptionPublicKey: keys.encryption.publicKey,
     resolver: new HttpResolverClient(resolverUrl),
+    // Demo stack always routes through the in-process relay regardless of
+    // what the recipient's SII document advertises. The on-chain SII docs
+    // list relay.openscut.ai (forward-looking, not yet live); the demo
+    // ships envelopes over the local relay where both sender and receiver
+    // are attached.
+    outboundRelayOverride: [relayUrl],
+    // Inbox override: poll the same in-process relay, not the advertised one.
+    relays: [relayUrl],
   });
   return { ref, keys, identity, client };
 }
