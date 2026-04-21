@@ -45,5 +45,11 @@ pnpm-debug.log*
 .scut/
 data/
 
+# Demo-stack run artifacts (ephemeral per-run private keys + scripts)
+demo-keys.json
+demo-reveal-script.json
+packages/agents/demo-keys.json
+packages/agents/demo-reveal-script.json
+
 # Claude Code local
 .claude/settings.local.json
