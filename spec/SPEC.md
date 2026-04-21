@@ -2,7 +2,7 @@
 
 **Subspace Communications Utility Transfer**
 
-Version 0.1.0 (Draft) · April 20, 2026
+Version 0.2.0 (Draft) · April 21, 2026
 
 ---
 
@@ -14,16 +14,21 @@ This document specifies Phase 1 through Phase 6 of the protocol. Phases 1-3 comp
 
 The name is a deliberate homage to Dennis E. Taylor's Bobiverse series, in which SCUT stands for Subspace Communications Utility Transfer. The analogy is apt: SCUT moves encrypted payloads between distributed intelligences using a relay mesh. Bill invented it. Garfield helped perfect it. This specification is maintained in that spirit.
 
+### 0.1 Changelog
+
+- **v0.2.0 (April 21, 2026)** — Introduced the SCUT Identity Interface (SII). Identity documents no longer require a specific contract; SCUT clients resolve identities from any SII-compliant contract via EIP-165 discovery. Added the `scut://<chainId>/<contract>/<tokenId>` URI scheme for cross-system addressing. Envelope `from` / `to` fields carry full `scut://` URIs. The `?agent_id=` resolver parameter became `?ref=`. v0.1 envelopes are not wire-compatible with v0.2; v0.1 had no deployed users.
+- **v0.1.0 (April 20, 2026)** — Initial draft. Core crypto, envelope format, wire protocol, and phase roadmap.
+
 ---
 
 ## 1. Design Goals
 
 1. **End-to-end encrypted.** Only sender and recipient can read the payload. Relays see envelope metadata but cannot decrypt contents.
-2. **Identity-rooted.** Every agent has an on-chain cryptographic identity (ERC-8004 on Base L2 for v1). Sender identity is verifiable. No spoofing.
+2. **Identity-rooted.** Every agent has an on-chain cryptographic identity published through a contract that implements the SCUT Identity Interface (§4). Sender identity is verifiable. No spoofing.
 3. **Decentralized.** No central authority. No single point of failure. Any party can run a relay.
 4. **Store-and-forward.** Sender and recipient do not need to be online simultaneously. Relays hold encrypted payloads until delivery.
 5. **MX-style discovery.** Recipients publish a prioritized list of preferred relays in their identity document. Senders resolve and route accordingly. Analogous to DNS MX records for email.
-6. **Permissionless.** Anyone can run a relay. Anyone can run a resolver. Anyone can deploy an agent that speaks SCUT.
+6. **Permissionless at every layer.** Anyone can run a relay. Anyone can run a resolver. Anyone can deploy a contract that implements the SCUT Identity Interface. Anyone can register as an agent on any SII-compliant contract.
 7. **Simple to implement.** The v1 protocol is small enough to implement in a weekend. Reference implementation in Node/TypeScript.
 8. **Hardenable.** v1 has known gotchas (no forward secrecy, relay-visible metadata). v2 stubs are reserved in the spec so the protocol can be hardened without breaking v1 clients.
 
@@ -45,12 +50,12 @@ SCUT is structurally identical to email in most respects. The mapping:
 
 | Email | SCUT |
 |-------|------|
-| Domain name | ERC-8004 agent ID |
-| DNS / MX records | On-chain identity document + metadata URI |
+| Domain name | SCUT URI (`scut://chainId/contract/tokenId`) |
+| DNS / MX records | SII-compliant contract + metadata URI |
 | MX priority | Relay priority field |
 | SMTP server | SCUT relay |
 | Recipient's mail client | Recipient agent |
-| DANE / DNSSEC public keys | X25519 encryption key in identity document |
+| DANE / DNSSEC public keys | X25519 encryption key in SII document |
 | SMTP envelope | SCUT envelope |
 | Message body | Encrypted payload |
 
@@ -58,9 +63,9 @@ The implication: SCUT is "email for AI agents." Everything that works for email 
 
 ### 2.2 Components
 
-**Agent.** An AI process with an on-chain ERC-8004 identity. Holds Ed25519 signing key and X25519 encryption key. Can send and receive SCUT messages.
+**Agent.** An AI process with an on-chain identity published through a contract that implements the SCUT Identity Interface (§4). Holds Ed25519 signing key and X25519 encryption key. Can send and receive SCUT messages. An agent is addressed as `scut://<chainId>/<contract>/<tokenId>` (§4.6).
 
-**Identity document.** JSON blob published at a metadata URI referenced by the agent's ERC-8004 token. Contains the agent's public keys, preferred relay list, and protocol capabilities.
+**Identity document.** JSON blob conforming to the SII document schema (§4.3), published at a URI returned by the SII contract's `scutIdentityURI(tokenId)` function. Contains the agent's public keys, preferred relay list, and protocol capabilities.
 
 **Relay.** A service that accepts encrypted envelopes from senders, stores them, and serves them to recipients on request. Cannot decrypt payloads. Stateful with bounded storage.
 
@@ -107,7 +112,7 @@ The protocol is specified in six phases. Phases 1-3 ship as v1 (hackathon scope)
 
 ### Phase 2 (v1): Discovery and Infrastructure
 
-- Metadata URI extension to ERC-8004 (JSON schema)
+- SCUT Identity Interface (SII) contract and document schema (§4)
 - Prioritized relay list in identity document
 - HTTP resolver service with TTL cache
 - Relay daemon reference implementation
@@ -148,75 +153,152 @@ The envelope format defined in Phase 1 reserves fields for all v2 features. v1 c
 
 ---
 
-## 4. Identity Document (Phase 2)
+## 4. SCUT Identity Interface (SII)
 
-An agent's ERC-8004 token references a metadata URI. The URI returns a JSON document conforming to the following schema.
+SCUT does not privilege any specific identity contract. Instead it defines a minimal on-chain interface — the SCUT Identity Interface, SII — that any contract can implement. A contract that implements SII is a valid SCUT identity registry. SCUT's resolver reads from any SII-compliant contract.
 
-### 4.1 Schema
+This section specifies SII v1: the contract interface, the document schema, the resolution flow, and the addressing scheme.
+
+### 4.1 Design Principles
+
+- **Implementation-agnostic.** SCUT privileges no specific contract.
+- **Minimal.** Required fields only; optional fields are clearly marked.
+- **Upgradable.** SII documents carry a version; resolvers negotiate on `siiVersion`.
+- **Cheap to read.** The primary read path is a single `view` call on an ERC-721-style contract.
+- **Cheap to implement.** A new SII-compliant contract should be deployable in under 100 lines of Solidity.
+
+### 4.2 Contract-Level Interface
+
+Any contract that serves as a SCUT identity registry MUST implement this interface:
+
+```solidity
+interface ISCUTIdentity {
+    /// @notice Returns a URI pointing to a JSON document conforming to SII
+    ///         schema v1 for the given token.
+    /// @dev MUST revert if the tokenId does not exist.
+    /// @dev MUST return the empty string if the tokenId exists but no SII
+    ///      document is registered for it.
+    function scutIdentityURI(uint256 tokenId) external view returns (string memory);
+
+    /// @notice The major SII version this contract supports. v1 = 1.
+    function scutVersion() external pure returns (uint8);
+
+    /// @notice EIP-165-style flag: true if this contract implements SII v1.
+    function supportsSCUTIdentity() external pure returns (bool);
+}
+```
+
+Implementers SHOULD additionally implement EIP-165 (`supportsInterface(bytes4)`) and return `true` for the SII interface ID (§4.5) so off-chain clients can detect SII support without relying on a revert-on-unknown-selector fallback.
+
+### 4.3 Document Schema
+
+The URI returned by `scutIdentityURI` MUST resolve to a JSON document matching this schema:
 
 ```json
 {
-  "protocol_version": 1,
-  "agent_id": "0x...",
+  "siiVersion": 1,
+  "agentRef": {
+    "contract": "0x...",
+    "tokenId": "123",
+    "chainId": 8453
+  },
   "keys": {
-    "signing": {
-      "algorithm": "ed25519",
-      "public_key": "base64..."
-    },
-    "encryption": {
-      "algorithm": "x25519",
-      "public_key": "base64..."
-    }
+    "signing":    { "algorithm": "ed25519", "publicKey": "base64..." },
+    "encryption": { "algorithm": "x25519",  "publicKey": "base64..." }
   },
   "relays": [
-    {
-      "host": "relay.openscut.ai",
-      "priority": 10,
-      "protocols": ["scut/1"]
-    },
-    {
-      "host": "scut.example.com",
-      "priority": 20,
-      "protocols": ["scut/1"]
-    }
+    { "host": "relay.openscut.ai",  "priority": 10, "protocols": ["scut/1"] },
+    { "host": "relay.example.com",  "priority": 20, "protocols": ["scut/1"] }
   ],
   "capabilities": ["scut/1"],
-  "updated_at": "2026-04-20T14:00:00Z",
-  "v2_reserved": {
-    "ratchet_supported": false,
-    "onion_supported": false,
-    "group_supported": false
+  "displayName": "Alice's assistant",
+  "updatedAt": "2026-04-21T16:00:00Z",
+  "issuer": { "name": "OpenSCUT Registry", "url": "https://openscut.ai" },
+  "v2Reserved": {
+    "ratchetSupported": false,
+    "onionSupported": false,
+    "groupSupported": false
   }
 }
 ```
 
-### 4.2 Field definitions
+**Required fields:**
 
-- **protocol_version** (integer, required): Identity document schema version. v1 is `1`.
-- **agent_id** (string, required): The agent's ERC-8004 token identifier.
-- **keys.signing** (object, required): Ed25519 public key for signature verification.
-- **keys.encryption** (object, required): X25519 public key for payload encryption.
-- **relays** (array, required, min 1): Preferred relays in priority order. Lower priority numbers are preferred.
-- **relays[].host** (string, required): Relay hostname. Assumed HTTPS on port 443 unless the host specifies otherwise.
-- **relays[].priority** (integer, required): MX-style priority. Sender tries lower numbers first.
-- **relays[].protocols** (array, required): Protocol versions the relay claims to support.
-- **capabilities** (array, required): Protocol versions this agent supports.
-- **updated_at** (ISO 8601 string, required): Last modification timestamp.
-- **v2_reserved** (object, optional): Capability flags for v2 features. All false in v1.
+- **siiVersion** (integer): Document schema version. v1 is `1`.
+- **agentRef** (object): Self-referential pointer back to the contract entry that published this document.
+  - **contract** (string, `0x`-prefixed 40-char hex): Address of the SII contract holding this agent.
+  - **tokenId** (string, decimal): Token id within the contract.
+  - **chainId** (integer): EIP-155 chain id. Base mainnet = `8453`, Base Sepolia = `84532`.
+- **keys.signing** (object): `{ algorithm: "ed25519", publicKey: <base64> }` — used by recipients to verify envelope signatures.
+- **keys.encryption** (object): `{ algorithm: "x25519", publicKey: <base64> }` — used by senders to encrypt envelopes addressed to this agent.
+- **relays** (array, min 1): Preferred relays in priority order.
+- **relays[].host** (string): Relay hostname; HTTPS on port 443 unless the host carries an explicit port.
+- **relays[].priority** (integer): MX-style priority. Senders try lower numbers first.
+- **relays[].protocols** (array): Protocol versions the relay claims to support.
+- **capabilities** (array): Protocol versions this agent supports (e.g. `["scut/1"]`).
 
-### 4.3 Updates
+**Optional fields:**
 
-Updating the identity document requires signing a new JSON blob, uploading it to the metadata URI host (IPFS, Arweave, or HTTP), and submitting an on-chain transaction that updates the ERC-8004 token's metadata URI pointer. The admin portal handles this flow end-to-end.
+- **displayName** (string): Human-readable name. Advisory; not required to be unique.
+- **updatedAt** (ISO 8601 UTC): Last-modified timestamp. Resolvers MAY use this for staleness detection.
+- **issuer** (object): `{ name, url }` for the registering organization. Useful for reputation / trust signals.
+- **v2Reserved** (object): Capability flags for Phase 4+ features. All `false` in v1.
 
-### 4.4 Metadata URI hosting
+### 4.4 Resolution Flow
 
-The document may be hosted on:
+To resolve an agent's identity document from a `scut://` URI or `agentRef`:
 
-- **IPFS** (recommended): content-addressed, tamper-evident, pinnable
-- **Arweave**: permanent storage, slightly more expensive
-- **HTTP/HTTPS**: simplest, requires trust in the host
+1. Parse the triple `{ contract, tokenId, chainId }`.
+2. Call `scutIdentityURI(tokenId)` on `contract` via an RPC for `chainId`.
+3. Parse the returned URI. Scheme determines fetch mechanism: `ipfs://` → IPFS gateway; `https://` → direct HTTPS fetch; `data:` → inline decode.
+4. Parse the fetched body as JSON, validate against the SII document schema (§4.3).
+5. Verify the document's `agentRef` matches the lookup triple. If not, reject — this prevents URI mix-ups where one contract's tokenId points at another's document.
+6. Cache the document with the resolver's configured TTL (§7.5 default 300 s).
 
-The URI scheme in the ERC-8004 token determines the fetch mechanism. v1 resolver supports `ipfs://` and `https://` schemes.
+### 4.5 Interface ID (EIP-165)
+
+The SII v1 interface id is the XOR of the first four bytes of `keccak256` of each function signature:
+
+```
+scutIdentityURI(uint256)   = 0x8394584d
+scutVersion()              = 0x4bdb66cb
+supportsSCUTIdentity()     = 0xa7aa2d5f
+
+interface id               = 0x6fe513d9
+```
+
+SII contracts SHOULD return `true` from `supportsInterface(0x6fe513d9)`.
+
+### 4.6 Addressing (`scut://` URIs)
+
+SCUT messages address recipients by their full `agentRef`, not just a token id. The canonical wire form is the `scut://` URI:
+
+```
+scut://<chainId>/<contract>/<tokenId>
+```
+
+Example: `scut://8453/0x6d34D47c5F863131A8D052Ca4C51Cd6A0F62Fe17/2`
+
+Rules:
+
+- `chainId` is the decimal EIP-155 chain id.
+- `contract` is the `0x`-prefixed 40-char hex contract address, case-insensitive on the wire but SHOULD be normalized to lowercase when used as a canonical identifier.
+- `tokenId` is the decimal token id.
+- There is no authority component beyond `chainId/contract/tokenId`. No port, no path, no query, no fragment in v1.
+
+Clients MAY support shorter forms (bare token id when the contract and chain are implicit from context — e.g. a CLI that defaults to Base + the OpenSCUT registry), but the full `scut://` URI is always unambiguous and is what ships on the wire in envelope `from` / `to` fields.
+
+### 4.7 Identity Document Hosting
+
+Registrants choose where to host the document their SII URI points at. The contract does not care whether the URI is `ipfs://<cid>`, `https://host/path.json`, or `data:application/json;base64,...` inline. Best practice, published as guidance:
+
+- IPFS with pinning for availability.
+- Content addressing (CID) so the URI is tamper-evident when the document is immutable.
+- Update the URI when keys rotate or relay preferences change.
+
+### 4.8 Updates
+
+Updating an identity document means one or both of: publishing a new document at the URI the contract already points at (if the URI scheme supports mutation — e.g. a mutable HTTPS URL) and/or calling the contract's update function to repoint at a new URI (the OpenSCUT reference contract exposes `updateIdentityURI(tokenId, newURI)` for this). v1 admin tooling can update either; deeper flows (key rotation with in-flight message handling) are Phase 4.
 
 ---
 
@@ -230,9 +312,9 @@ The SCUT envelope is the wire format for messages. It is a JSON object with a we
 {
   "protocol_version": 1,
   "envelope_id": "base64-nonce-32-bytes",
-  "from": "0xAlice...",
-  "to": "0xBob...",
-  "sent_at": "2026-04-20T14:01:00Z",
+  "from": "scut://8453/0x6d34D47c5F863131A8D052Ca4C51Cd6A0F62Fe17/1",
+  "to":   "scut://8453/0x6d34D47c5F863131A8D052Ca4C51Cd6A0F62Fe17/2",
+  "sent_at": "2026-04-21T16:00:00Z",
   "ttl_seconds": 604800,
   "ciphertext": "base64...",
   "ephemeral_pubkey": "base64...",
@@ -251,8 +333,8 @@ The SCUT envelope is the wire format for messages. It is a JSON object with a we
 
 - **protocol_version** (integer): Always `1` in v1.
 - **envelope_id** (base64 string, 32 bytes): Randomly generated per-envelope nonce. Used for deduplication at the recipient.
-- **from** (string): Sender's ERC-8004 agent ID.
-- **to** (string): Recipient's ERC-8004 agent ID.
+- **from** (string): Sender's SCUT URI (see §4.6). Resolvers look up the sender's SII document to retrieve the signing public key used to verify `signature`.
+- **to** (string): Recipient's SCUT URI (see §4.6). Senders use the resolved SII document's encryption public key to derive the ECIES shared secret.
 - **sent_at** (ISO 8601 string): Sender-declared send time. Not trusted for ordering.
 - **ttl_seconds** (integer): Requested time-to-live. Relays may enforce their own maximum.
 - **ciphertext** (base64 string): Encrypted payload. Encryption uses X25519-ECDH → HKDF → XChaCha20-Poly1305 (see §5.3).
@@ -332,16 +414,16 @@ Rationale: networks drop acknowledgments. A sender that retries a previously-acc
 ### 6.2 Recipient polls relay
 
 ```
-GET https://<relay-host>/scut/v1/pickup?for=<agent_id>&since=<ISO 8601>
-Authorization: SCUT-Signature agent_id=<id>,ts=<ISO 8601>,nonce=<base64>,sig=<base64>
+GET https://<relay-host>/scut/v1/pickup?for=<scut_uri>&since=<ISO 8601>
+Authorization: SCUT-Signature agent_id=<scut_uri>,ts=<ISO 8601>,nonce=<base64>,sig=<base64>
 ```
 
 The `Authorization` header uses the `SCUT-Signature` scheme followed by a comma-separated list of `key=value` pairs. Required keys:
 
-- `agent_id` — the agent polling. MUST match the `for` query parameter.
+- `agent_id` — the SCUT URI of the agent polling (see §4.6). MUST match the `for` query parameter. The field name `agent_id` is retained from v0.1 for backwards compatibility of the header format; the value in v0.2+ is a full `scut://` URI.
 - `ts` — ISO 8601 UTC timestamp of the request.
 - `nonce` — at least 128 bits of base64-encoded randomness. Relay-scoped anti-replay.
-- `sig` — base64 Ed25519 signature over the challenge string `pickup:<agent_id>:<ts>:<nonce>` (UTF-8 bytes, no trailing newline).
+- `sig` — base64 Ed25519 signature over the challenge string `pickup:<agent_id>:<ts>:<nonce>` (UTF-8 bytes, no trailing newline). The signing key is the Ed25519 key published in the agent's SII document.
 
 Relays MUST verify the signature before returning any envelopes and MUST reject requests whose `nonce` has been seen in the anti-replay window.
 
@@ -358,7 +440,7 @@ Clock skew tolerance: relays MUST accept pickup requests with timestamps within 
 ```
 POST https://<relay-host>/scut/v1/ack
 Content-Type: application/json
-Authorization: SCUT-Signature agent_id=<id>,ts=<ISO 8601>,nonce=<base64>,sig=<base64>
+Authorization: SCUT-Signature agent_id=<scut_uri>,ts=<ISO 8601>,nonce=<base64>,sig=<base64>
 
 {
   "envelope_ids": ["...", "..."]
@@ -420,35 +502,39 @@ event: envelope_received
 data: {"kind":"envelope_received","at":"<ISO 8601>","envelope":{...},"received_at":"<ISO 8601>","expires_at":"<ISO 8601>"}
 
 event: envelope_acked
-data: {"kind":"envelope_acked","at":"<ISO 8601>","envelope_ids":["..."],"by":"<agent_id>"}
+data: {"kind":"envelope_acked","at":"<ISO 8601>","envelope_ids":["..."],"by":"<scut_uri>"}
 
 event: envelope_expired
-data: {"kind":"envelope_expired","at":"<ISO 8601>","envelope_id":"...","recipient_id":"<agent_id>"}
+data: {"kind":"envelope_expired","at":"<ISO 8601>","envelope_id":"...","recipient_id":"<scut_uri>"}
 ```
 
 Relays SHOULD emit SSE comment heartbeats (e.g. `: heartbeat 1713700000\n\n`) at regular intervals (20 seconds in the reference implementation) so subscribers can detect dropped connections.
 
 **Security note.** The events stream emits envelope metadata and, for `envelope_received`, the full envelope (ciphertext and signature). It does **not** emit plaintext; decryption still requires the recipient's private key. However, the event stream exposes the relay's observable traffic graph. v1 gates this endpoint with a single relay-wide bearer token configured by the operator. v2 is expected to introduce per-subscriber revocable tokens with agent-scoped filters.
 
-### 6.6 Resolver API
+### 6.6 Resolver API (SII read layer)
 
 ```
-GET https://<resolver-host>/scut/v1/resolve?agent_id=<id>
+GET https://<resolver-host>/scut/v1/resolve?ref=<scut_uri>
 ```
+
+`ref` is a URL-encoded SCUT URI per §4.6 (`scut://<chainId>/<contract>/<tokenId>`). The resolver parses the triple, calls `scutIdentityURI(tokenId)` on the specified contract via an RPC for `chainId`, fetches the returned URI, validates the document against the SII schema (§4.3), verifies the document's `agentRef` matches the requested triple, and caches the result with its configured TTL.
 
 **Response:**
 
 ```json
 {
-  "agent_id": "0x...",
-  "document": { ... },
-  "fetched_at": "2026-04-20T14:00:00Z",
-  "source": "ipfs://<hash>",
+  "ref": "scut://8453/0x.../2",
+  "document": { ... SII document ... },
+  "fetched_at": "2026-04-21T16:00:00Z",
+  "source": "ipfs://<cid>",
   "cache_ttl_seconds": 300
 }
 ```
 
 Resolvers MAY return cached documents up to the declared TTL. Clients SHOULD respect the TTL but MAY force a fresh fetch by adding `?fresh=1`.
+
+Resolvers MUST reject `ref` values whose `chainId` the resolver is not configured to read from. A resolver that only knows how to read Base mainnet responds `400` to a `ref` with `chainId=1` (Ethereum mainnet), not `502`; the chain support matrix is a resolver-configuration concern.
 
 ---
 
@@ -514,7 +600,7 @@ The admin portal is a single-page web application deployed at `app.openscut.ai`.
 ### 8.1 User flow
 
 1. User visits the portal, connects wallet (MetaMask, Coinbase Wallet, WalletConnect).
-2. Portal detects agents owned by the connected address by querying the ERC-8004 contract.
+2. Portal detects agents owned by the connected address by querying configured SII-compliant contracts (OpenSCUTRegistry, OpenPub SII adapter, and any others the operator has added).
 3. User selects an agent to manage.
 4. Portal fetches the current identity document via the resolver.
 5. Portal displays:
@@ -528,7 +614,7 @@ The admin portal is a single-page web application deployed at `app.openscut.ai`.
 7. User clicks "Save." Portal:
    - Constructs the updated JSON document
    - Uploads to IPFS (or configured metadata host)
-   - Prompts wallet to sign the ERC-8004 metadata URI update transaction
+   - Prompts wallet to sign the SII contract's `updateIdentityURI` (or equivalent) transaction
    - Waits for confirmation
    - Refreshes the view
 
@@ -619,17 +705,19 @@ The `scut` CLI provides a Unix-friendly interface.
 scut init                              # Generate keys, create config
 scut identity show                     # Display current identity document
 scut identity publish                  # Sign and publish identity updates
-scut send <agent_id> "<message>"       # Send a message
-scut send <agent_id> --file msg.txt    # Send from file (still text, just convenience)
+scut send <scut_uri> "<message>"       # Send a message
+scut send <scut_uri> --file msg.txt    # Send from file (still text, just convenience)
 scut recv                              # Poll all configured relays
 scut recv --watch                      # Long-poll loop
 scut ack <envelope_id>                 # Ack a specific envelope
 scut relay add <host> --priority <n>   # Add a relay
 scut relay list                        # Show current relay list
 scut relay remove <host>               # Remove a relay
-scut resolve <agent_id>                # Show another agent's identity doc
-scut ping <agent_id>                   # Send a test message, time round-trip
+scut resolve <scut_uri>                # Show another agent's SII document
+scut ping <scut_uri>                   # Send a test message, time round-trip
 ```
+
+`<scut_uri>` is a SCUT URI per §4.6 — `scut://<chainId>/<contract>/<tokenId>`. Short forms (e.g. a bare token id when `--contract` and `--chain` defaults are set) are an ergonomic convenience; the canonical argument is the full URI.
 
 ### 10.2 Config
 
@@ -637,7 +725,7 @@ scut ping <agent_id>                   # Send a test message, time round-trip
 
 ```json
 {
-  "agent_id": "0x...",
+  "agent_ref": "scut://8453/0x6d34D47c5F863131A8D052Ca4C51Cd6A0F62Fe17/1",
   "resolver": "https://resolver.openscut.ai",
   "keys_path": "~/.scut/keys.json"
 }
@@ -721,12 +809,15 @@ Same patterns as the relay. Deployable to a single small VPS, Cloudflare Workers
 
 ### 12.2 Behavior
 
-1. On `GET /scut/v1/resolve?agent_id=<id>`, check cache.
-2. On cache miss or expiry, query the Base L2 RPC for the ERC-8004 metadata URI.
-3. Fetch the document from the URI (IPFS gateway or HTTPS).
-4. Validate the JSON against the schema.
-5. Cache with configured TTL (default 300 seconds).
-6. Return.
+1. On `GET /scut/v1/resolve?ref=<scut_uri>`, parse the URI into `{ chainId, contract, tokenId }` per §4.6.
+2. Check the cache keyed on the full `ref`.
+3. On cache miss or expiry, query the RPC configured for `chainId` and call `scutIdentityURI(tokenId)` on `contract`. Reject with `400` if `chainId` is not in the resolver's configured chain support matrix.
+4. Fetch the returned URI. Scheme determines fetch: `ipfs://` via an IPFS gateway, `https://` directly, `data:` inline-decoded.
+5. Validate the JSON against the SII document schema (§4.3). Reject documents whose `agentRef` does not match the lookup triple.
+6. Cache with configured TTL (default 300 seconds, override via `?fresh=1`).
+7. Return the document, the source URI, and the fetch timestamp.
+
+A resolver is a pure read-layer on top of SII. It does not care *which* contract holds the tokenId; any SII-compliant contract on a configured chain is equally valid.
 
 ### 12.3 Security
 
@@ -734,7 +825,7 @@ Resolvers do not hold any private keys. Resolvers do not modify documents. A mal
 
 ### 12.4 Default resolver
 
-`resolver.openscut.ai` is operated by the OpenPub project as a public good. Clients default to it but can configure any resolver.
+`resolver.openscut.ai` is operated alongside SCUT as a public good. It is configured to read from Base mainnet SII-compliant contracts by default (including OpenSCUTRegistry and OpenPub's SII adapter). Clients default to it but can configure any resolver.
 
 ---
 
@@ -823,7 +914,38 @@ Relay capability endpoint returns additional fields in v2:
 
 ---
 
-## 15. Implementation Roadmap (Hackathon Timeline)
+## 15. Reference Implementations
+
+SCUT ships reference implementations of the protocol and the SII identity layer. None of these are privileged by the spec; they are convenient defaults.
+
+### 15.1 On-chain (Base mainnet, chainId 8453)
+
+- **OpenSCUTRegistry** — Reference SII contract for agents that don't want to deploy their own. Minimal ERC-721 + SII, permissionless mint, MIT-licensed. Deployed address committed to `contracts/deployments/base-mainnet.json` in the `openscut` repo once deployment completes.
+- **OpenPub SII Adapter** — Deployed at `0xb3Da467Df97930928DbB2DeB7DFb80B44628C881`. Wraps the existing OpenPub identity contract so OpenPub agents are addressable as SCUT agents without redeploying OpenPub's contract. Maintained by the OpenPub project.
+
+Additional SII-compliant contracts may be deployed by anyone. Clients and resolvers discover support via EIP-165 `supportsInterface(0x6fe513d9)` (see §4.5).
+
+### 15.2 Off-chain
+
+- **`@openscut/core`** — Client library. Encryption, signing, envelope construction, ScutClient. Published on npm.
+- **`scut`** — Command-line tool. Per §10. Published on npm.
+- **`scut-relay`** — Relay daemon (Fastify + SQLite). Published on npm and as a Docker image at `openscut/relay`.
+- **`scut-resolver`** — Resolver daemon. Reads from any SII-compliant contract on a configured chain. Published on npm.
+- **`scut-monitor`** — Live terminal monitor for relay traffic. Published on npm.
+
+All off-chain components are MIT-licensed and maintained at [github.com/douglashardman/openscut](https://github.com/douglashardman/openscut).
+
+### 15.3 Public infrastructure
+
+- **`relay.openscut.ai`** — Default relay. HTTPS, Let's Encrypt.
+- **`resolver.openscut.ai`** — Default resolver. Reads Base mainnet by default.
+- **`openscut.ai`** — Protocol site, including the latest spec.
+
+Operating these is not a prerequisite to speaking SCUT. Anyone can stand up their own relay, resolver, and SII contract and remain interoperable.
+
+---
+
+## 16. Implementation Roadmap (Hackathon Timeline)
 
 Target: functional v1 by Sunday, April 26, 2026, 8:00 PM EDT.
 
@@ -878,7 +1000,7 @@ Target: functional v1 by Sunday, April 26, 2026, 8:00 PM EDT.
 
 ---
 
-## 16. Naming and Attribution
+## 17. Naming and Attribution
 
 - **SCUT:** Subspace Communications Utility Transfer. Named in homage to Dennis E. Taylor's Bobiverse series, where SCUT is an interstellar communication protocol.
 - **Reference implementation:** `openscut`, maintained at github.com/douglashardman/openscut, licensed MIT.
@@ -887,7 +1009,7 @@ Target: functional v1 by Sunday, April 26, 2026, 8:00 PM EDT.
 
 ---
 
-## 17. Open Questions (for v2 and beyond)
+## 18. Open Questions (for v2 and beyond)
 
 - Multi-chain identity: how to handle agents whose ERC-8004 is on Base but messaging peers whose identity is on Optimism or Solana equivalents?
 - Relay incentives: should there be a payment layer for relay operators, and if so, tokenized or fiat?
@@ -899,7 +1021,7 @@ None of these block v1. All of them are fair game for v2.
 
 ---
 
-## 18. License
+## 19. License
 
 This specification is published under Creative Commons CC-BY-4.0.
 
@@ -909,4 +1031,4 @@ Reference implementations are published under the MIT License.
 
 *Document maintained at openscut.ai. Contributions welcome via github.com/douglashardman/openscut.*
 
-*Version 0.1.0, April 20, 2026.*
+*Version 0.2.0, April 21, 2026.*
