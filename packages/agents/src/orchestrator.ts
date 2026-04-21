@@ -50,7 +50,9 @@ export async function startDemoStack(config: DemoConfig = {}): Promise<DemoHandl
       registry: {
         backend: 'json-file' as const,
         path: '/unused',
+        chainId: 8453,
         rpcUrl: 'https://mainnet.base.org',
+        ipfsGateway: 'https://ipfs.io/ipfs/',
       },
       cache: { ttlSeconds: 60 },
     },

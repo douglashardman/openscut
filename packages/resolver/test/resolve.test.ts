@@ -31,7 +31,9 @@ const testConfig: ResolverConfig = {
   registry: {
     backend: 'json-file',
     path: '/unused',
+    chainId: 8453,
     rpcUrl: 'https://mainnet.base.org',
+    ipfsGateway: 'https://ipfs.io/ipfs/',
   },
   cache: { ttlSeconds: 60 },
 };
