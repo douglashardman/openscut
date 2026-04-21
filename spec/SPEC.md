@@ -311,49 +311,76 @@ Content-Type: application/json
 ```
 
 **Relay response:**
-- `202 Accepted` with `{"stored_at": "<ISO 8601>", "envelope_id": "..."}` if accepted
-- `400 Bad Request` if envelope is malformed
-- `401 Unauthorized` if sender signature is invalid
-- `413 Payload Too Large` if envelope exceeds relay limits
-- `429 Too Many Requests` if sender is rate-limited
-- `503 Service Unavailable` if relay is over capacity
+- `202 Accepted` with `{"stored_at": "<ISO 8601>", "envelope_id": "...", "idempotent": <bool>}` if accepted.
+- `400 Bad Request` if envelope is malformed.
+- `401 Unauthorized` if sender signature is invalid or sender identity is not resolvable.
+- `409 Conflict` if `envelope_id` is already stored under a *different* signature.
+- `413 Payload Too Large` if envelope exceeds relay limits.
+- `429 Too Many Requests` if sender is rate-limited.
+- `503 Service Unavailable` if relay is over capacity.
 
 The relay MUST verify the Ed25519 signature before accepting. Relays that do not verify are out of spec.
+
+**Idempotency.** Push is idempotent on `envelope_id`:
+
+- New `envelope_id` → store and emit events, respond `202` with `idempotent: false`.
+- Duplicate `envelope_id` and the stored envelope's `signature` matches the submitted `signature` → do **not** re-store, do **not** re-emit events, respond `202` with the *original* `stored_at` and `idempotent: true`.
+- Duplicate `envelope_id` with a *different* `signature` → respond `409 Conflict`. This indicates either a client bug or a forgery attempt; in either case the relay does not overwrite the stored envelope.
+
+Rationale: networks drop acknowledgments. A sender that retries a previously-accepted push should not see a permanent failure. Comparing `signature` (which covers the canonical bytes of every other field) gives a cryptographic equality check without the relay re-parsing the full payload.
 
 ### 6.2 Recipient polls relay
 
 ```
 GET https://<relay-host>/scut/v1/pickup?for=<agent_id>&since=<ISO 8601>
-Authorization: SCUT-Signature <base64 signed challenge>
+Authorization: SCUT-Signature agent_id=<id>,ts=<ISO 8601>,nonce=<base64>,sig=<base64>
 ```
 
-The `Authorization` header contains a signed pickup request: the recipient signs a canonical string `pickup:<agent_id>:<ISO 8601 now>:<nonce>` with their Ed25519 private key. Relay verifies before returning any envelopes.
+The `Authorization` header uses the `SCUT-Signature` scheme followed by a comma-separated list of `key=value` pairs. Required keys:
+
+- `agent_id` — the agent polling. MUST match the `for` query parameter.
+- `ts` — ISO 8601 UTC timestamp of the request.
+- `nonce` — at least 128 bits of base64-encoded randomness. Relay-scoped anti-replay.
+- `sig` — base64 Ed25519 signature over the challenge string `pickup:<agent_id>:<ts>:<nonce>` (UTF-8 bytes, no trailing newline).
+
+Relays MUST verify the signature before returning any envelopes and MUST reject requests whose `nonce` has been seen in the anti-replay window.
 
 **Relay response:**
-- `200 OK` with `{"envelopes": [<envelope>, ...]}` on success (may be empty)
-- `401 Unauthorized` if pickup request signature is invalid
-- `429 Too Many Requests` if recipient is polling too frequently
+- `200 OK` with `{"envelopes": [<envelope>, ...]}` on success (may be empty).
+- `400 Bad Request` if the `for` parameter is missing or `since` is not parseable.
+- `401 Unauthorized` if the `Authorization` header is missing, malformed, carries a bad signature, has a `ts` outside the clock-skew window, or reuses a `nonce`.
+- `429 Too Many Requests` if the recipient is polling too frequently.
 
-Clock skew tolerance: relays MUST accept pickup requests with timestamps within ±5 minutes of relay time. Rejects outside that window to prevent replay.
+Clock skew tolerance: relays MUST accept pickup requests with timestamps within ±5 minutes of relay time and MUST reject outside that window. The nonce anti-replay cache MUST cover at least the clock-skew window.
 
 ### 6.3 Recipient acknowledges delivery
 
 ```
 POST https://<relay-host>/scut/v1/ack
 Content-Type: application/json
-Authorization: SCUT-Signature <base64 signed challenge>
+Authorization: SCUT-Signature agent_id=<id>,ts=<ISO 8601>,nonce=<base64>,sig=<base64>
 
 {
   "envelope_ids": ["...", "..."]
 }
 ```
 
-**Relay response:**
-- `200 OK` with `{"dropped": [...]}` listing envelope IDs successfully dropped
-- `401 Unauthorized` if signature is invalid
-- `404 Not Found` if no matching envelopes exist (idempotent, not an error)
+The `Authorization` header uses the same `SCUT-Signature` scheme as pickup. The challenge signed by the `sig` field is:
 
-On ack, the relay drops the encrypted blob. If a recipient does not ack, the relay retains the blob until TTL expires.
+```
+ack:<agent_id>:<ts>:<nonce>:<envelope_ids_sorted_and_comma_joined>
+```
+
+The envelope ids MUST be sorted lexicographically before joining so sender and recipient canonicalize the challenge identically. Binding the ids into the signed material prevents a relay (or MITM) from re-using a valid ack header to drop a different set of envelopes.
+
+The relay MUST only drop envelopes whose `recipient_id` matches the header's `agent_id`. Ack requests for envelopes addressed to other recipients MUST return an empty `dropped` list, not a 404.
+
+**Relay response:**
+- `200 OK` with `{"dropped": [...]}` listing envelope IDs successfully dropped (may be empty).
+- `400 Bad Request` if `envelope_ids` is missing or empty.
+- `401 Unauthorized` if the `Authorization` header is missing, malformed, carries a bad signature, has a stale `ts`, or reuses a `nonce`.
+
+On ack, the relay drops the stored envelope. If a recipient does not ack, the relay retains the envelope until TTL expires.
 
 ### 6.4 Relay capability query
 
@@ -374,7 +401,36 @@ GET https://<relay-host>/scut/v1/capabilities
 
 Clients should query this at least once per relay to understand limits.
 
-### 6.5 Resolver API
+### 6.5 Relay event stream
+
+```
+GET https://<relay-host>/scut/v1/events
+Accept: text/event-stream
+Authorization: Bearer <relay-operator-configured-token>
+```
+
+Relays SHOULD expose a Server-Sent Events stream that emits a structured event for every envelope received, acknowledged, or expired. This endpoint is the integration point for observability tools such as `scut-monitor`.
+
+**Response:** `200 OK` with `Content-Type: text/event-stream` on success, `401 Unauthorized` if the bearer token is missing or does not match the relay's configured events token.
+
+**Event kinds (v1):**
+
+```
+event: envelope_received
+data: {"kind":"envelope_received","at":"<ISO 8601>","envelope":{...},"received_at":"<ISO 8601>","expires_at":"<ISO 8601>"}
+
+event: envelope_acked
+data: {"kind":"envelope_acked","at":"<ISO 8601>","envelope_ids":["..."],"by":"<agent_id>"}
+
+event: envelope_expired
+data: {"kind":"envelope_expired","at":"<ISO 8601>","envelope_id":"...","recipient_id":"<agent_id>"}
+```
+
+Relays SHOULD emit SSE comment heartbeats (e.g. `: heartbeat 1713700000\n\n`) at regular intervals (20 seconds in the reference implementation) so subscribers can detect dropped connections.
+
+**Security note.** The events stream emits envelope metadata and, for `envelope_received`, the full envelope (ciphertext and signature). It does **not** emit plaintext; decryption still requires the recipient's private key. However, the event stream exposes the relay's observable traffic graph. v1 gates this endpoint with a single relay-wide bearer token configured by the operator. v2 is expected to introduce per-subscriber revocable tokens with agent-scoped filters.
+
+### 6.6 Resolver API
 
 ```
 GET https://<resolver-host>/scut/v1/resolve?agent_id=<id>

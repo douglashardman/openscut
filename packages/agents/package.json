@@ -20,7 +20,9 @@
     "dev": "tsx src/index.ts"
   },
   "dependencies": {
-    "@openscut/core": "workspace:*"
+    "@openscut/core": "workspace:*",
+    "scut-relay": "workspace:^",
+    "scut-resolver": "workspace:^"
   },
   "engines": {
     "node": ">=20"

@@ -36,3 +36,23 @@ export {
   type OpenedEnvelope,
 } from './envelope.js';
 export { canonicalBytesForSigning } from './sign.js';
+export {
+  ACK_CHALLENGE_PREFIX,
+  PICKUP_CHALLENGE_PREFIX,
+  ackChallenge,
+  buildAckAuthorization,
+  buildPickupAuthorization,
+  formatSignatureHeader,
+  parseSignatureHeader,
+  pickupChallenge,
+  verifyChallengeSignature,
+  type SignatureHeaderFields,
+} from './auth-header.js';
+export {
+  HttpResolverClient,
+  ScutClient,
+  ScutClientError,
+  type ResolverClient,
+  type ScutClientOptions,
+  type SendResult,
+} from './client.js';
