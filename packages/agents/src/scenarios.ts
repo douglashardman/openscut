@@ -1,11 +1,13 @@
 /**
  * The five demo scenarios driven by the orchestrator during recording.
  *
- * Scenarios 1-3 are LOCKED per CLAUDE.md: these exact words ship.
- * Do not substitute, do not "improve," do not regenerate with an LLM.
+ * All five scenarios are LOCKED. Scenarios 1-3 are verbatim from
+ * CLAUDE.md. Scenarios 4-5 were approved by Doug on April 21, 2026
+ * (scenario 4 rewritten from a rejected doctor-appointment draft to
+ * HVAC service coordination — medical scenarios are out of scope for
+ * this demo per the original scenario-selection criteria).
  *
- * Scenarios 4-5 are drafts for Doug's review before recording. Flag
- * any changes before the Saturday dress rehearsal.
+ * Do not substitute, do not "improve," do not regenerate with an LLM.
  */
 
 export type Role = 'A' | 'B';
@@ -114,7 +116,7 @@ export const SCENARIOS: readonly Scenario[] = [
   },
   {
     id: 4,
-    label: 'Doctor appointment rescheduling (DRAFT)',
+    label: 'Home service coordination',
     a: { id: '0x6c2a9a0f13b4e5d1' },
     b: { id: '0xb0e41d76f8a9c231' },
     startOffsetMs: 41_000,
@@ -125,23 +127,25 @@ export const SCENARIOS: readonly Scenario[] = [
         fromRole: 'A',
         sendOffsetMs: 0,
         body:
-          "My user's Wednesday 3 PM with Dr. Patel needs to move. " +
-          "She's on a flight to SFO that afternoon. Do you have an " +
-          '8 AM slot or anything after 6 PM this week?',
+          "My user's HVAC system is flagging an error code. Sending her " +
+          'service history, the current diagnostic reading, and the ' +
+          'warranty details. Can you check if the tech who serviced it ' +
+          'last fall is available?',
       },
       {
         fromRole: 'B',
         sendOffsetMs: 700,
         body:
-          'Thursday 8 AM open. Also Friday 5:30 PM if end-of-day works. ' +
-          'Flagging: her chart notes Dr. Patel prefers morning for ' +
-          'follow-ups like hers.',
+          'Marcus is booked tomorrow but available Thursday morning. ' +
+          'Confirming the unit is still under the extended warranty. ' +
+          'Sending the check-in instructions... she can leave the side ' +
+          'gate unlocked or your user can meet him at 9 AM.',
       },
     ],
   },
   {
     id: 5,
-    label: 'Contractor scheduling (DRAFT)',
+    label: 'Contractor scheduling',
     a: { id: '0x1e44ff8bc0327a59' },
     b: { id: '0x85d7a3e61f9b204c' },
     startOffsetMs: 53_000,
