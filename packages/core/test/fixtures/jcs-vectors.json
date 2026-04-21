@@ -1,0 +1,37 @@
+[
+  {
+    "name": "basic alphabetical sort",
+    "input": { "b": "B", "a": "A" },
+    "expected": "{\"a\":\"A\",\"b\":\"B\"}"
+  },
+  {
+    "name": "nested object and array (array order preserved)",
+    "input": { "z": 1, "a": [2, 1], "m": { "y": 2, "x": 1 } },
+    "expected": "{\"a\":[2,1],\"m\":{\"x\":1,\"y\":2},\"z\":1}"
+  },
+  {
+    "name": "literals null / true / false",
+    "input": { "literals": [null, true, false], "number": 1 },
+    "expected": "{\"literals\":[null,true,false],\"number\":1}"
+  },
+  {
+    "name": "nested deeply sorted",
+    "input": { "nested": { "deeply": { "sorted": true, "alphabetically": "yes" } }, "a": 1 },
+    "expected": "{\"a\":1,\"nested\":{\"deeply\":{\"alphabetically\":\"yes\",\"sorted\":true}}}"
+  },
+  {
+    "name": "numbers preserve shortest repr",
+    "input": { "decimal": 2.5, "neg": -0.1, "int": 100 },
+    "expected": "{\"decimal\":2.5,\"int\":100,\"neg\":-0.1}"
+  },
+  {
+    "name": "unicode key sort",
+    "input": { "ä": 1, "a": 2 },
+    "expected": "{\"a\":2,\"ä\":1}"
+  },
+  {
+    "name": "empty object and array",
+    "input": { "obj": {}, "arr": [] },
+    "expected": "{\"arr\":[],\"obj\":{}}"
+  }
+]
