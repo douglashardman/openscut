@@ -17,7 +17,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --passWithNoTests",
     "lint": "eslint src test --no-error-on-unmatched-pattern",
-    "dev": "tsx src/index.ts"
+    "dev": "tsx src/index.ts",
+    "demo": "tsx src/run-demo.ts"
   },
   "dependencies": {
     "@openscut/core": "workspace:*",

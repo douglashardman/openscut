@@ -1,17 +1,24 @@
 # SCUT Demo: Decision Document
 
-**Status:** Parked for Friday decision
+**Status:** LOCKED — terminal-of-blobs with reveal animation
 **Captured:** April 20, 2026
+**Locked:** April 21, 2026 (RevealBox spike signed off)
 **Demo deadline:** Sunday April 26, 2026, 8 PM EDT
 **Recording target:** Sunday morning, Sony ZV-E10
 
 ---
 
+## Status (Day 2)
+
+The demo direction is **locked: terminal-of-blobs with reveal animation (Concept 2 below)**. Doug approved the RevealBox spike on Day 2 and greenlit building the full monitor around it. The animation itself is locked; the code paths around it can change.
+
+Remaining work: scenario recording pass Saturday, final timing tune on Peter, record Sunday morning.
+
+---
+
 ## Purpose of This Document
 
-Captures all the demo thinking done on April 20, before the build starts Tuesday. The decisions below are not locked. They are documented so Friday's go/no-go call is informed by what we thought when we had time to think, not what we feel under pressure Friday night.
-
-On Friday, revisit this document. Decide based on what Garfield has actually built, what polish level is realistic, and what risk profile makes sense given Saturday's review pass.
+Captures all the demo thinking done on April 20, before the build started Tuesday. Sections 1-3 are preserved as the decision history. Decisions taken on Day 2 are reflected in the "Status" block above and the resolved open questions at the bottom.
 
 ---
 
@@ -24,6 +31,8 @@ The demo must land that thesis in 60 seconds. Not "look at this security feature
 ---
 
 ## Three Demo Concepts Considered
+
+> **LOCKED:** Concept 2 (terminal-of-blobs with reveal animation) is the direction. Concepts 1 and 3 are retained below as decision history.
 
 ### Concept 1: Slack-based incident response
 
@@ -41,9 +50,9 @@ The demo must land that thesis in 60 seconds. Not "look at this security feature
 - Requires Slack integration build or high-fidelity mockup
 - Doesn't match what SCUT actually is
 
-**Status:** Not the lead. Kept as fallback if the terminal demo can't be made to land by Saturday.
+**Status:** Not used. Dropped as a fallback after Day 2 spike approval. Slack surface will not be built this week.
 
-### Concept 2: Terminal-of-blobs with reveal animations (LEAD CONCEPT)
+### Concept 2: Terminal-of-blobs with reveal animations (LOCKED)
 
 **Frame:** A terminal streams real SCUT envelopes in real time. Periodically, the stream pauses, one envelope expands, its ciphertext visibly decrypts into readable plaintext for 2-3 seconds, then re-encrypts back to ciphertext and collapses back into the stream.
 
@@ -60,7 +69,7 @@ The demo must land that thesis in 60 seconds. Not "look at this security feature
 - No human in frame (could feel sterile)
 - Production quality must be high to land
 
-**Status:** Current lead. Decision Friday based on how the monitor tool is coming along.
+**Status:** LOCKED on Day 2 (April 21). RevealBox spike approved by Doug; the morph texture, 65/35 drift, 2.5s hold, and 800ms morph durations are signed off. Full monitor built around the spike on Day 2. Saturday will verify the dim level on Peter and tune if needed; animation itself is locked.
 
 ### Concept 3: Hybrid
 
@@ -70,7 +79,7 @@ Slack visible on one half of the screen, live SCUT terminal on the other. Agents
 
 **Cons:** Busier frame, harder to focus attention, requires both Slack mockup AND terminal polish.
 
-**Status:** Considered, not preferred. Split attention is usually worse.
+**Status:** Not used. Dropped with Concept 1 after Day 2 spike approval.
 
 ---
 
@@ -282,13 +291,13 @@ Smaller build than the Slack demo required. Sophistication concentrated in one p
 
 ---
 
-## Open Questions for Friday
+## Open Questions (RESOLVED Day 2)
 
-1. **Option A/B/C production decision.** Depends on how `scut-monitor` is looking by Thursday night. If the TUI is polished, go B. If rough, consider C or A.
-2. **Scenario swaps.** If any of the three scenarios feels off after seeing it render, swap it. Candidates on bench: shared document collaboration, contractor scheduling, friend dinner coordination.
-3. **Slack fallback.** If terminal demo is not working by Friday night, is the Slack demo still viable with less prep? Probably requires 24 hours of pivot, which is tight but doable.
-4. **Length.** 60 seconds is the working target. Verify in Discord Tuesday whether the submission allows longer. If up to 90 seconds is OK, the terminal demo benefits from the extra breathing room.
-5. **Audio.** No music or voiceover currently planned. Terminal sound + keystrokes only. Reconfirm Friday.
+1. **Option A/B/C production decision.** Resolved: Option B (real TUI tool that does the animation live). `scut-monitor` renders envelopes via SSE from the relay, decrypts with a keyring file, and drives a scripted reveal sequence. Recording is a single take off Peter.
+2. **Scenario swaps.** Resolved: three CLAUDE.md scenarios ship verbatim; two additional drafts (doctor appointment rescheduling, contractor scheduling) added in `packages/agents/src/scenarios.ts` for a total of 5 scenarios. Doug reviews the two drafts before the Saturday dress rehearsal.
+3. **Slack fallback.** Resolved: not used. Slack surface is not being built this week. If something catastrophic happens to the terminal demo Saturday, we ship a simpler screencapture of a single send/receive pair instead.
+4. **Length.** Resolved: ~60-65 seconds, accommodating 5 reveals (one per scenario) at ~12 s between reveals. Not hackathon-gated so not hard-capped.
+5. **Audio.** Resolved: no voiceover, no music. Terminal keystrokes and the natural sound of the MacBook fan. Reconfirm after Saturday dress rehearsal.
 
 ---
 
@@ -331,9 +340,12 @@ Make the fallback decision Friday night at the latest. Do not let the demo conce
 
 ## Document Metadata
 
-- **Version:** 0.1 (draft, parked)
-- **Next review:** Friday April 24, 2026, evening
+- **Version:** 1.0 (LOCKED)
+- **Locked on:** April 21, 2026 (Day 2)
+- **Next review:** Saturday April 25, 2026 (dress rehearsal on Peter, tune dim + timing)
 - **Author:** Doug Hardman + Guppi, April 20, 2026
+- **Lock record:** RevealBox spike approved; 5 scenarios queued; monitor built around the locked animation on Day 2
 - **Related documents:**
-  - `scut-spec-v1.md` (protocol specification)
-  - `garfield-CLAUDE.md` (builder agent context)
+  - `spec/SPEC.md` (protocol specification)
+  - `CLAUDE.md` (builder agent context)
+  - `packages/agents/src/scenarios.ts` (demo scenarios, 1-3 locked, 4-5 draft)

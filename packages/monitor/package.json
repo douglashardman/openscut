@@ -30,12 +30,16 @@
   "dependencies": {
     "@openscut/core": "workspace:*",
     "ink": "^7.0.1",
-    "react": "^19.2.5"
+    "libsodium-wrappers": "^0.8.4",
+    "react": "^19.2.5",
+    "zod": "^4.3.6"
   },
   "engines": {
     "node": ">=20"
   },
   "devDependencies": {
-    "@types/react": "^19.2.14"
+    "@types/libsodium-wrappers": "^0.8.2",
+    "@types/react": "^19.2.14",
+    "ink-testing-library": "^4.0.0"
   }
 }
