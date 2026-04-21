@@ -24,12 +24,18 @@
     "test": "vitest run --passWithNoTests",
     "lint": "eslint src test --no-error-on-unmatched-pattern",
     "start": "node dist/index.js",
-    "dev": "tsx src/index.ts"
+    "dev": "tsx src/index.ts",
+    "spike": "tsx spike/reveal-spike.tsx"
   },
   "dependencies": {
-    "@openscut/core": "workspace:*"
+    "@openscut/core": "workspace:*",
+    "ink": "^7.0.1",
+    "react": "^19.2.5"
   },
   "engines": {
     "node": ">=20"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.14"
   }
 }
