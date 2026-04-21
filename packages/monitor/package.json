@@ -24,7 +24,7 @@
     "test": "vitest run --passWithNoTests",
     "lint": "eslint src test --no-error-on-unmatched-pattern",
     "start": "node dist/index.js",
-    "dev": "tsx src/index.ts",
+    "dev": "tsx src/index.tsx",
     "spike": "tsx spike/reveal-spike.tsx"
   },
   "dependencies": {

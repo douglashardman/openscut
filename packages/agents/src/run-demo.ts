@@ -64,12 +64,15 @@ async function main(): Promise<void> {
   console.error(`keys     ${args.keysOut}`);
   console.error(`script   ${args.scriptOut}`);
   console.error('');
-  console.error('point scut-monitor at the relay and run:');
+  console.error('step 1 — in a second terminal, run:');
+  console.error('');
   console.error(
     `  pnpm --filter scut-monitor run dev -- --relay ${handles.relay.baseUrl} --token '${args.eventsToken}' --keys ${args.keysOut} --resolver ${handles.resolver.baseUrl} --script ${args.scriptOut}`,
   );
   console.error('');
-  console.error('press enter to start scenarios (SIGINT to stop the stack).');
+  console.error('step 2 — come back here and press enter to start the scenarios.');
+  console.error('         (the monitor must be connected first or the reveals will fire into nothing.)');
+  console.error('         SIGINT in this terminal stops the whole stack.');
 
   const shutdown = async (): Promise<void> => {
     await handles.close();

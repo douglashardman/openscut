@@ -1,0 +1,44 @@
+{
+  "reveals": [
+    {
+      "at_ms_from_start": 8000,
+      "match": {
+        "from": "0xa3f1c42d81b5e9f3",
+        "to": "0x7b2ed88f12ac40e6"
+      },
+      "scenario_id": 1
+    },
+    {
+      "at_ms_from_start": 20000,
+      "match": {
+        "from": "0x4d9c772f5a11c8de",
+        "to": "0xc1a8631294d7052b"
+      },
+      "scenario_id": 2
+    },
+    {
+      "at_ms_from_start": 32000,
+      "match": {
+        "from": "0x9f73e004ab38d112",
+        "to": "0xe2b155c9a4f70d81"
+      },
+      "scenario_id": 3
+    },
+    {
+      "at_ms_from_start": 44000,
+      "match": {
+        "from": "0x6c2a9a0f13b4e5d1",
+        "to": "0xb0e41d76f8a9c231"
+      },
+      "scenario_id": 4
+    },
+    {
+      "at_ms_from_start": 56000,
+      "match": {
+        "from": "0x1e44ff8bc0327a59",
+        "to": "0x85d7a3e61f9b204c"
+      },
+      "scenario_id": 5
+    }
+  ]
+}
