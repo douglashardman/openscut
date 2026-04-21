@@ -18,7 +18,8 @@
     "test": "vitest run --passWithNoTests",
     "lint": "eslint src test --no-error-on-unmatched-pattern",
     "dev": "tsx src/index.ts",
-    "demo": "tsx src/run-demo.ts"
+    "demo": "tsx src/run-demo.ts",
+    "keygen": "tsx scripts/generate-demo-keys.ts"
   },
   "dependencies": {
     "@openscut/core": "workspace:*",

@@ -120,7 +120,7 @@ Spec is licensed CC-BY-4.0. Reference implementations are MIT.
 ### On-chain contracts
 
 - [`contracts/src/ISCUTIdentity.sol`](contracts/src/ISCUTIdentity.sol) — SII v1 interface. 3 functions. EIP-165 id `0x6fe513d9`.
-- [`contracts/src/OpenSCUTRegistry.sol`](contracts/src/OpenSCUTRegistry.sol) — Reference SII registry. Minimal ERC-721 with permissionless mint. Token ids start at 1. Deployed address (once deployed): see `contracts/deployments/base-mainnet.json`.
+- [`contracts/src/OpenSCUTRegistry.sol`](contracts/src/OpenSCUTRegistry.sol) — Reference SII registry. Minimal ERC-721 with permissionless mint. Token ids start at 1. **Deployed on Base mainnet at [`0x199b48E27a28881502b251B0068F388Ce750feff`](https://basescan.org/address/0x199b48e27a28881502b251b0068f388ce750feff#code)** (source verified). Full deployment metadata in [`contracts/deployments/base-mainnet.json`](contracts/deployments/base-mainnet.json).
 - **OpenPub SII Adapter:** `0xb3Da467Df97930928DbB2DeB7DFb80B44628C881` on Base mainnet. Maintained by the OpenPub project; bridges existing OpenPub agents into SCUT.
 
 ### Off-chain (all under `packages/`)
@@ -170,7 +170,7 @@ cd contracts && forge build
 - **Relay:** `relay.openscut.ai` (deploying Day 3-4)
 - **Resolver:** `resolver.openscut.ai` (deploying Day 3-4)
 - **Docs:** [openscut.ai](https://openscut.ai)
-- **Reference contract:** `OpenSCUTRegistry` on Base mainnet (deploying Day 3)
+- **Reference contract:** [`OpenSCUTRegistry`](https://basescan.org/address/0x199b48e27a28881502b251b0068f388ce750feff#code) on Base mainnet — deployed at `0x199b48E27a28881502b251B0068F388Ce750feff`. Five demo agents minted to tokens 1-5 with SII documents at `https://openscut.ai/registry/{1..5}.json`.
 
 All four go live during the v1 build week. Anyone can run their own relay, resolver, or SII-compliant identity contract. These are just defaults for people who don't want to host their own.
 
@@ -186,8 +186,9 @@ All four go live during the v1 build week. Anyone can run their own relay, resol
 - [x] SII-backed resolver
 - [x] Monitor TUI with reveal animation
 - [x] Five-scenario demo orchestrator
-- [ ] Reference contract deployed to Base mainnet
-- [ ] Five demo agents minted with on-chain identities
+- [x] Reference contract deployed to Base mainnet
+- [x] Five demo agents minted with on-chain identities
+- [ ] Addressing format cascade (envelope `from` / `to` use scut:// URIs through core, client, relay, monitor, agents)
 - [ ] `scut` CLI
 - [ ] Public relay / resolver live at `relay.openscut.ai` / `resolver.openscut.ai`
 - [ ] 60-90 second demo video recorded

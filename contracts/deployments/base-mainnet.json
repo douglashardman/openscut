@@ -1,0 +1,17 @@
+{
+  "network": "base-mainnet",
+  "chainId": 8453,
+  "rpcUrl": "https://mainnet.base.org",
+  "contracts": {
+    "OpenSCUTRegistry": {
+      "address": "0x199b48E27a28881502b251B0068F388Ce750feff",
+      "deployer": "0x6050bB51838d007336e10A0054e3173998269b6C",
+      "deployTx": "0xd87b18f3581b0dd87bcb00d88357735f743888194c81f6a41f90675a44aa11b3",
+      "deployBlock": 45011119,
+      "deployedAt": "2026-04-22",
+      "siiInterfaceId": "0x6fe513d9",
+      "sourceVerified": true,
+      "basescanUrl": "https://basescan.org/address/0x199b48e27a28881502b251b0068f388ce750feff"
+    }
+  }
+}

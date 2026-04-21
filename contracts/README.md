@@ -2,12 +2,25 @@
 
 Solidity implementations of the SCUT Identity Interface (SII), plus the reference registry `OpenSCUTRegistry`.
 
+## Live deployment
+
+`OpenSCUTRegistry` is deployed on **Base mainnet** (chainId 8453) at:
+
+```
+0x199b48E27a28881502b251B0068F388Ce750feff
+```
+
+- Source verified on BaseScan: https://basescan.org/address/0x199b48e27a28881502b251b0068f388ce750feff#code
+- Deployment metadata: [`deployments/base-mainnet.json`](deployments/base-mainnet.json)
+- Tokens 1-5 are the five demo agents for the OpenSCUT v1 terminal demo. Their SII documents live at `https://openscut.ai/registry/{1..5}.json`.
+
 ## Contents
 
 - `src/ISCUTIdentity.sol` — SII v1 interface. Any contract that implements these three functions is a valid SCUT identity registry. See [`spec/SPEC.md` §4](../spec/SPEC.md).
 - `src/OpenSCUTRegistry.sol` — Reference SII contract. Minimal ERC-721 with permissionless mint and per-token SII document URI. Token ids start at 1.
 - `test/OpenSCUTRegistry.t.sol` — Foundry unit tests. 19 cases covering mint, update, ownership, interface IDs.
 - `script/Deploy.s.sol` — Deployment script for Base mainnet / testnet.
+- `script/MintDemoAgents.s.sol` — Mints the five demo tokens against a deployed registry. Takes `REGISTRY_ADDRESS`, `MINT_TO`, and `TOKEN_URI_1`..`TOKEN_URI_5` from env.
 
 ## One-time setup
 
