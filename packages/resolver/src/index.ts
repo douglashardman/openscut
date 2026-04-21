@@ -1,18 +1,20 @@
 #!/usr/bin/env node
 import { loadConfigFromEnv, loadConfigFromFile, type ResolverConfig } from './config.js';
 import { JsonFileRegistry } from './registry.js';
-import { Erc8004Registry } from './registry/erc8004.js';
+import { SIIRegistry } from './registry/sii.js';
 import { createResolverServer } from './server.js';
 import type { Registry } from './registry.js';
 
 async function buildRegistry(config: ResolverConfig): Promise<Registry> {
-  if (config.registry.backend === 'erc8004') {
+  if (config.registry.backend === 'sii') {
     if (!config.registry.contractAddress) {
-      throw new Error('erc8004 backend requires registry.contractAddress');
+      throw new Error('sii backend requires registry.contractAddress');
     }
-    return new Erc8004Registry({
+    return new SIIRegistry({
+      chainId: config.registry.chainId,
       contractAddress: config.registry.contractAddress as `0x${string}`,
       rpcUrl: config.registry.rpcUrl,
+      ipfsGateway: config.registry.ipfsGateway,
     });
   }
   if (!config.registry.path) {

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Text } from 'ink';
 import type { StreamEntry } from '../types.js';
-import { CIPHER_SUITE_LABEL, formatClockTime, formatSize, truncateAgentId } from '../format.js';
+import { CIPHER_SUITE_LABEL, formatClockTime, formatSize, truncateAgentRef } from '../format.js';
 
 export interface EnvelopeLineProps {
   entry: StreamEntry;
@@ -15,8 +15,8 @@ export function EnvelopeLine({
   highlighted = false,
 }: EnvelopeLineProps): React.ReactElement {
   const ts = formatClockTime(entry.receivedAt);
-  const from = truncateAgentId(entry.envelope.from);
-  const to = truncateAgentId(entry.envelope.to);
+  const from = truncateAgentRef(entry.envelope.from);
+  const to = truncateAgentRef(entry.envelope.to);
   const size = formatSize(entry.sizeBytes).padStart(8, ' ');
   const sig = 'sig✓';
   const statusGlyph =

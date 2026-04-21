@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { Box, Text } from 'ink';
 import { BOX_LINES, BOX_WIDTH, buildTransitions, morphFrame, wrapLines } from '../phases.js';
 import type { Phase } from '../phases.js';
-import { truncateAgentId } from '../format.js';
+import { truncateAgentRef } from '../format.js';
 
 export interface RevealBoxProps {
   cipher: string;
@@ -76,12 +76,12 @@ export function RevealBox({ cipher, plain, from, to, phase, progress }: RevealBo
       paddingX={1}
       width={BOX_WIDTH + 4}
     >
-      <Box justifyContent="space-between">
+      <Box flexDirection="column">
         <Text color={borderColor} bold>
           {label}
         </Text>
         <Text color="gray">
-          {`${truncateAgentId(from)} → ${truncateAgentId(to)}`}
+          {`${truncateAgentRef(from)}  →  ${truncateAgentRef(to)}`}
         </Text>
       </Box>
       <Box marginTop={1} flexDirection="column">

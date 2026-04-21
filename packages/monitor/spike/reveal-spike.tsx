@@ -17,8 +17,14 @@ const BOX_LINES = 5;
 const SCENARIO_PLAINTEXT =
   'My user is meeting yours Thursday at 2 PM. Sharing her recent emails on the project and the three questions she wants to cover. Can you brief yours ahead of the call?';
 
-const FROM_ID = '0xa3f1c42d81b5e9f3';
-const TO_ID = '0x7b2ed88f12ac40e6';
+const FROM_ID = 'scut://8453/0x6d34D47c5F863131A8D052Ca4C51Cd6A0F62Fe17/1';
+const TO_ID = 'scut://8453/0x6d34D47c5F863131A8D052Ca4C51Cd6A0F62Fe17/2';
+
+function truncateRef(ref: string): string {
+  const match = /^scut:\/\/(\d+)\/(0x[a-fA-F0-9]{40})\/(.+)$/u.exec(ref);
+  if (!match) return ref;
+  return `scut://${match[1]}/${match[2]!.slice(0, 6)}…${match[2]!.slice(-4)}/${match[3]}`;
+}
 
 const PHASES = {
   approach: 400,
@@ -165,11 +171,11 @@ function RevealBox({ cipher, plain, phase, progress }: RevealBoxProps): React.Re
 
   return (
     <Box flexDirection="column" borderStyle="round" borderColor={labelColor} paddingX={1} width={BOX_WIDTH + 4}>
-      <Box justifyContent="space-between">
+      <Box flexDirection="column">
         <Text color={labelColor} bold>
           {label}
         </Text>
-        <Text color="gray">{`${FROM_ID.slice(0, 10)}… → ${TO_ID.slice(0, 10)}…`}</Text>
+        <Text color="gray">{`${truncateRef(FROM_ID)}  →  ${truncateRef(TO_ID)}`}</Text>
       </Box>
       <Box marginTop={1} flexDirection="column">
         {collapsed ? (
@@ -217,11 +223,11 @@ function morph(
 }
 
 const STREAM_LINES: readonly string[] = [
-  '[10:14:22.103]  0x4d9c… → 0xc1a8…   412 B  sig✓  xChaCha20+Ed25519',
-  '[10:14:22.447]  0x9f73… → 0xe2b1…   508 B  sig✓  xChaCha20+Ed25519',
-  '[10:14:22.892]  0xc1a8… → 0x4d9c…   489 B  sig✓  xChaCha20+Ed25519',
-  '[10:14:23.015]  0xe2b1… → 0x9f73…   573 B  sig✓  xChaCha20+Ed25519',
-  '[10:14:23.201]  0xa3f1… → 0x7b2e…   212 B  sig✓  xChaCha20+Ed25519',
+  '[10:14:22.103]  scut://8453/0x6d34…Fe17/1 → scut://8453/0x6d34…Fe17/3     412 B  sig✓  xChaCha20+Ed25519',
+  '[10:14:22.447]  scut://8453/0x6d34…Fe17/3 → scut://8453/0x6d34…Fe17/1     508 B  sig✓  xChaCha20+Ed25519',
+  '[10:14:22.892]  scut://8453/0x6d34…Fe17/1 → scut://8453/0x6d34…Fe17/4     489 B  sig✓  xChaCha20+Ed25519',
+  '[10:14:23.015]  scut://8453/0x6d34…Fe17/4 → scut://8453/0x6d34…Fe17/1     573 B  sig✓  xChaCha20+Ed25519',
+  '[10:14:23.201]  scut://8453/0x6d34…Fe17/1 → scut://8453/0x6d34…Fe17/2     212 B  sig✓  xChaCha20+Ed25519',
 ];
 
 function StreamBackground({ dim }: { dim: boolean }): React.ReactElement {

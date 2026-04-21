@@ -6,6 +6,7 @@ import type { Registry } from '../registry.js';
 interface CachedEntry {
   document: IdentityDocument;
   fetchedAt: number;
+  sourceKey: string;
 }
 
 export interface ResolveDeps {
@@ -18,33 +19,50 @@ export function registerResolveRoute(app: FastifyInstance, deps: ResolveDeps): v
   const ttlMs = deps.config.cache.ttlSeconds * 1000;
 
   app.get('/scut/v1/resolve', async (req, reply) => {
-    const query = req.query as { agent_id?: string; fresh?: string };
-    if (!query.agent_id) {
-      return reply.code(400).send({ error: 'missing required query parameter: agent_id' });
+    const query = req.query as { agent_id?: string; ref?: string; fresh?: string };
+    const key = query.ref ?? query.agent_id;
+    if (!key) {
+      return reply
+        .code(400)
+        .send({ error: 'missing required query parameter: ref (or legacy agent_id)' });
     }
 
     const fresh = query.fresh === '1' || query.fresh === 'true';
-    const cached = cache.get(query.agent_id);
+    const cached = cache.get(key);
     if (!fresh && cached && Date.now() - cached.fetchedAt < ttlMs) {
-      return respond(reply, cached, deps.config.cache.ttlSeconds);
+      return respond(reply, key, cached, deps.config.cache.ttlSeconds);
     }
 
-    const document = await deps.registry.lookup(query.agent_id);
-    if (!document) {
-      return reply.code(404).send({ error: 'agent_id not found', agent_id: query.agent_id });
+    let document: IdentityDocument | undefined;
+    try {
+      document = await deps.registry.lookup(key);
+    } catch (err) {
+      return reply
+        .code(502)
+        .send({ error: 'registry lookup failed', detail: (err as Error).message });
     }
-    const entry: CachedEntry = { document, fetchedAt: Date.now() };
-    cache.set(query.agent_id, entry);
-    return respond(reply, entry, deps.config.cache.ttlSeconds);
+
+    if (!document) {
+      return reply.code(404).send({ error: 'ref not found', ref: key });
+    }
+    const entry: CachedEntry = { document, fetchedAt: Date.now(), sourceKey: key };
+    cache.set(key, entry);
+    return respond(reply, key, entry, deps.config.cache.ttlSeconds);
   });
 }
 
-function respond(reply: FastifyReply, entry: CachedEntry, ttlSeconds: number): FastifyReply {
+function respond(
+  reply: FastifyReply,
+  key: string,
+  entry: CachedEntry,
+  ttlSeconds: number,
+): FastifyReply {
   return reply.code(200).send({
+    ref: key,
     agent_id: entry.document.agent_id,
     document: entry.document,
     fetched_at: new Date(entry.fetchedAt).toISOString(),
-    source: 'local:mock-registry',
+    source: 'registry',
     cache_ttl_seconds: ttlSeconds,
   });
 }
