@@ -7,8 +7,8 @@ on:
     branches: [main]
 
 jobs:
-  ci:
-    name: lint + typecheck + build + test
+  ts:
+    name: ts — lint + build + typecheck + test
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -40,3 +40,28 @@ jobs:
 
       - name: Test
         run: pnpm -r --filter './packages/*' run test
+
+  contracts:
+    name: contracts — forge build + test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+
+      - name: Install Solidity dependencies
+        working-directory: contracts
+        run: forge install --no-git foundry-rs/forge-std openzeppelin/openzeppelin-contracts
+
+      - name: Build
+        working-directory: contracts
+        run: forge build --sizes
+
+      - name: Test
+        working-directory: contracts
+        run: forge test -vvv
