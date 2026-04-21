@@ -36,7 +36,11 @@ async function bootstrap(): Promise<Stack> {
   const resolverServer = await createResolverServer(
     {
       listen: { host: '127.0.0.1', port: 0 },
-      registry: { path: '/unused' },
+      registry: {
+        backend: 'json-file' as const,
+        path: '/unused',
+        rpcUrl: 'https://mainnet.base.org',
+      },
       cache: { ttlSeconds: 60 },
     },
     registry,
