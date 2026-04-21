@@ -1,20 +1,26 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
+  formatScutUri,
   generateEncryptionKeypair,
   generateSigningKeypair,
   HttpResolverClient,
   ScutClient,
-  type IdentityDocument,
+  type ScutUri,
+  type SiiDocument,
 } from '@openscut/core';
 import { createRelayServer, type RelayServer } from 'scut-relay/src/server.js';
 import { InMemoryRegistry } from 'scut-resolver/src/registry.js';
 import { createResolverServer, type ResolverServer } from 'scut-resolver/src/server.js';
 
+const TEST_CONTRACT = '0x0000000000000000000000000000000000003333';
+const TEST_CHAIN_ID = 8453;
+let nextTokenId = 1;
+
 interface AgentFixture {
-  id: string;
+  ref: ScutUri;
   signing: { publicKey: string; privateKey: string };
   encryption: { publicKey: string; privateKey: string };
-  identity: IdentityDocument;
+  identity: SiiDocument;
   client: ScutClient;
 }
 
@@ -66,8 +72,8 @@ async function bootstrap(): Promise<Stack> {
   });
   const relayUrl = await relayServer.app.listen({ host: '127.0.0.1', port: 0 });
 
-  const alice = await createAgent('0xAlice', relayUrl, resolverUrl, registry);
-  const bob = await createAgent('0xBob', relayUrl, resolverUrl, registry);
+  const alice = await createAgent(relayUrl, resolverUrl, registry);
+  const bob = await createAgent(relayUrl, resolverUrl, registry);
 
   return {
     relay: Object.assign(relayServer, { baseUrl: relayUrl }),
@@ -83,40 +89,37 @@ async function bootstrap(): Promise<Stack> {
 }
 
 async function createAgent(
-  id: string,
   relayUrl: string,
   resolverUrl: string,
   registry: InMemoryRegistry,
 ): Promise<AgentFixture> {
+  const tokenId = String(nextTokenId++);
+  const agentRef = { contract: TEST_CONTRACT, tokenId, chainId: TEST_CHAIN_ID };
+  const ref = formatScutUri(agentRef);
   const signing = await generateSigningKeypair();
   const encryption = await generateEncryptionKeypair();
-  const identity: IdentityDocument = {
-    protocol_version: 1,
-    agent_id: id,
+  const identity: SiiDocument = {
+    siiVersion: 1,
+    agentRef,
     keys: {
-      signing: { algorithm: 'ed25519', public_key: signing.publicKey },
-      encryption: { algorithm: 'x25519', public_key: encryption.publicKey },
+      signing: { algorithm: 'ed25519', publicKey: signing.publicKey },
+      encryption: { algorithm: 'x25519', publicKey: encryption.publicKey },
     },
     relays: [{ host: relayUrl, priority: 10, protocols: ['scut/1'] }],
     capabilities: ['scut/1'],
-    updated_at: new Date().toISOString(),
-    v2_reserved: {
-      ratchet_supported: false,
-      onion_supported: false,
-      group_supported: false,
-    },
+    updatedAt: new Date().toISOString(),
   };
-  registry.set(id, identity);
+  registry.set(identity);
 
   const client = new ScutClient({
-    agentId: id,
+    agentRef: ref,
     signingPrivateKey: signing.privateKey,
     signingPublicKey: signing.publicKey,
     encryptionPrivateKey: encryption.privateKey,
     encryptionPublicKey: encryption.publicKey,
     resolver: new HttpResolverClient(resolverUrl),
   });
-  return { id, signing, encryption, identity, client };
+  return { ref, signing, encryption, identity, client };
 }
 
 describe('end-to-end: resolver + relay + ScutClient', () => {
@@ -132,7 +135,7 @@ describe('end-to-end: resolver + relay + ScutClient', () => {
 
   it('alice sends, bob receives, bob acks, relay drops', async () => {
     const sendResult = await stack.alice.client.send({
-      to: stack.bob.id,
+      to: stack.bob.ref,
       body: 'Hello, Bob. Meeting Thursday at 2.',
     });
     expect(sendResult.envelopeId).toMatch(/.+/);
@@ -141,7 +144,7 @@ describe('end-to-end: resolver + relay + ScutClient', () => {
     const received = await stack.bob.client.receive();
     expect(received).toHaveLength(1);
     expect(received[0]?.body).toBe('Hello, Bob. Meeting Thursday at 2.');
-    expect(received[0]?.from).toBe(stack.alice.id);
+    expect(received[0]?.from).toBe(stack.alice.ref);
     expect(received[0]?.envelopeId).toBe(sendResult.envelopeId);
 
     const dropped = await stack.bob.client.ack([sendResult.envelopeId]);
@@ -185,7 +188,7 @@ describe('end-to-end: resolver + relay + ScutClient', () => {
 
     try {
       const { envelopeId } = await stack.alice.client.send({
-        to: stack.bob.id,
+        to: stack.bob.ref,
         body: 'SSE test message',
       });
 
@@ -211,7 +214,10 @@ describe('end-to-end: resolver + relay + ScutClient', () => {
 
   it('push to a 404 recipient raises ScutClientError(not_found)', async () => {
     await expect(
-      stack.alice.client.send({ to: '0xNobody', body: 'hi' }),
+      stack.alice.client.send({
+        to: 'scut://8453/0x0000000000000000000000000000000000000000/99',
+        body: 'hi',
+      }),
     ).rejects.toMatchObject({ code: 'not_found' });
   });
 });

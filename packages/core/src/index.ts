@@ -1,4 +1,4 @@
-export const VERSION = '0.1.0';
+export const VERSION = '0.2.0';
 export {
   DEFAULT_TTL_SECONDS,
   EMPTY_V2_RESERVED,
@@ -12,14 +12,22 @@ export {
 } from './types.js';
 export type {
   AgentId,
+  AgentRef,
   Ed25519KeyPair,
   Envelope,
   EnvelopeV2Reserved,
   IdentityDocument,
   RelayEntry,
   ScutCryptoErrorCode,
+  ScutUri,
+  SiiDocument,
   X25519KeyPair,
 } from './types.js';
+export {
+  formatScutUri,
+  isScutUri,
+  parseScutUri,
+} from './agent-ref.js';
 export {
   canonicalizeToBytes,
   canonicalizeToString,

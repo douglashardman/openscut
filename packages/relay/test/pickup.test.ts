@@ -45,7 +45,7 @@ describe('GET /scut/v1/pickup', () => {
     const id = await pushOne();
     const authorization = await pickupHeader(bob);
     const res = await fetch(
-      `${server.baseUrl}/scut/v1/pickup?for=${encodeURIComponent(bob.id)}`,
+      `${server.baseUrl}/scut/v1/pickup?for=${encodeURIComponent(bob.ref)}`,
       { headers: { authorization } },
     );
     expect(res.status).toBe(200);
@@ -58,7 +58,7 @@ describe('GET /scut/v1/pickup', () => {
     await pushOne();
     const authorization = await pickupHeader(bob);
     const res = await fetch(
-      `${server.baseUrl}/scut/v1/pickup?for=${encodeURIComponent(alice.id)}`,
+      `${server.baseUrl}/scut/v1/pickup?for=${encodeURIComponent(alice.ref)}`,
       { headers: { authorization } },
     );
     expect(res.status).toBe(401);
@@ -69,12 +69,12 @@ describe('GET /scut/v1/pickup', () => {
     // Bob tries to pickup but signs with Alice's key.
     const ts = new Date().toISOString();
     const nonce = 'abc123';
-    const challenge = pickupChallenge(bob.id, ts, nonce);
+    const challenge = pickupChallenge(bob.ref, ts, nonce);
     const authorization = await signedHeader(alice, challenge, ts, nonce);
     // We still pretend the header says bob, but the sig was made by alice.
-    const spoofed = authorization.replace(`agent_id=${alice.id}`, `agent_id=${bob.id}`);
+    const spoofed = authorization.replace(`agent_id=${alice.ref}`, `agent_id=${bob.ref}`);
     const res = await fetch(
-      `${server.baseUrl}/scut/v1/pickup?for=${encodeURIComponent(bob.id)}`,
+      `${server.baseUrl}/scut/v1/pickup?for=${encodeURIComponent(bob.ref)}`,
       { headers: { authorization: spoofed } },
     );
     expect(res.status).toBe(401);
@@ -84,10 +84,10 @@ describe('GET /scut/v1/pickup', () => {
     await pushOne();
     const ts = new Date(Date.now() - 10 * 60 * 1000).toISOString();
     const nonce = 'stale-nonce';
-    const challenge = pickupChallenge(bob.id, ts, nonce);
+    const challenge = pickupChallenge(bob.ref, ts, nonce);
     const authorization = await signedHeader(bob, challenge, ts, nonce);
     const res = await fetch(
-      `${server.baseUrl}/scut/v1/pickup?for=${encodeURIComponent(bob.id)}`,
+      `${server.baseUrl}/scut/v1/pickup?for=${encodeURIComponent(bob.ref)}`,
       { headers: { authorization } },
     );
     expect(res.status).toBe(401);
@@ -97,12 +97,12 @@ describe('GET /scut/v1/pickup', () => {
     await pushOne();
     const authorization = await pickupHeader(bob);
     const first = await fetch(
-      `${server.baseUrl}/scut/v1/pickup?for=${encodeURIComponent(bob.id)}`,
+      `${server.baseUrl}/scut/v1/pickup?for=${encodeURIComponent(bob.ref)}`,
       { headers: { authorization } },
     );
     expect(first.status).toBe(200);
     const replay = await fetch(
-      `${server.baseUrl}/scut/v1/pickup?for=${encodeURIComponent(bob.id)}`,
+      `${server.baseUrl}/scut/v1/pickup?for=${encodeURIComponent(bob.ref)}`,
       { headers: { authorization } },
     );
     expect(replay.status).toBe(401);

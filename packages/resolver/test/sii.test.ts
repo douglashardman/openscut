@@ -187,8 +187,9 @@ describe('SIIRegistry.lookup (legacy string entry point)', () => {
       fetchImpl: fakeFetch(JSON.stringify(doc)),
     });
     const out = await registry.lookup(`scut://${CHAIN_ID}/${CONTRACT}/1`);
-    expect(out?.agent_id).toBe(`scut://${CHAIN_ID}/${CONTRACT}/1`);
-    expect(out?.keys.signing.public_key).toBe('base64signing');
+    expect(out?.agentRef.tokenId).toBe('1');
+    expect(out?.agentRef.contract).toBe(CONTRACT);
+    expect(out?.keys.signing.publicKey).toBe('base64signing');
   });
 
   it('accepts a bare token id and applies the configured default contract', async () => {
@@ -201,7 +202,8 @@ describe('SIIRegistry.lookup (legacy string entry point)', () => {
       fetchImpl: fakeFetch(JSON.stringify(doc)),
     });
     const out = await registry.lookup('1');
-    expect(out?.agent_id).toBe(`scut://${CHAIN_ID}/${CONTRACT}/1`);
+    expect(out?.agentRef.tokenId).toBe('1');
+    expect(out?.agentRef.contract).toBe(CONTRACT);
   });
 
   it('rejects malformed scut:// URIs as bad_ref', async () => {
@@ -253,9 +255,13 @@ describe('resolver route /scut/v1/resolve?ref= integration', () => {
     const ref = encodeURIComponent(`scut://${CHAIN_ID}/${CONTRACT}/1`);
     const res = await fetch(`${baseUrl}/scut/v1/resolve?ref=${ref}`);
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { ref: string; document: { agent_id: string } };
+    const body = (await res.json()) as {
+      ref: string;
+      document: { agentRef: { tokenId: string; contract: string; chainId: number } };
+    };
     expect(body.ref).toBe(`scut://${CHAIN_ID}/${CONTRACT}/1`);
-    expect(body.document.agent_id).toBe(`scut://${CHAIN_ID}/${CONTRACT}/1`);
+    expect(body.document.agentRef.tokenId).toBe('1');
+    expect(body.document.agentRef.contract).toBe(CONTRACT);
   });
 
   it('returns 400 when neither ref nor agent_id is supplied', async () => {

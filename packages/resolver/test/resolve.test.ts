@@ -2,26 +2,35 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { IdentityDocument } from '@openscut/core';
+import { formatScutUri, type SiiDocument } from '@openscut/core';
 import { InMemoryRegistry, JsonFileRegistry } from '../src/registry.js';
 import { createResolverServer, type ResolverServer } from '../src/server.js';
 import type { ResolverConfig } from '../src/config.js';
 
-function makeIdentity(agentId: string): IdentityDocument {
+const CONTRACT = '0x6d34d47c5f863131a8d052ca4c51cd6a0f62fe17';
+const CHAIN_ID = 8453;
+
+function makeIdentity(tokenId: string): SiiDocument {
   return {
-    protocol_version: 1,
-    agent_id: agentId,
+    siiVersion: 1,
+    agentRef: { contract: CONTRACT, tokenId, chainId: CHAIN_ID },
     keys: {
-      signing: { algorithm: 'ed25519', public_key: 'c2lnbmluZ19wdWJfa2V5X2Jhc2U2NF9wbGFjZWhvbGRlcg==' },
-      encryption: { algorithm: 'x25519', public_key: 'ZW5jcnlwdGlvbl9wdWJfa2V5X2Jhc2U2NF9wbGFjZWhvbGRlcg==' },
+      signing: {
+        algorithm: 'ed25519',
+        publicKey: 'c2lnbmluZ19wdWJfa2V5X2Jhc2U2NF9wbGFjZWhvbGRlcg==',
+      },
+      encryption: {
+        algorithm: 'x25519',
+        publicKey: 'ZW5jcnlwdGlvbl9wdWJfa2V5X2Jhc2U2NF9wbGFjZWhvbGRlcg==',
+      },
     },
     relays: [{ host: 'relay.test', priority: 10, protocols: ['scut/1'] }],
     capabilities: ['scut/1'],
-    updated_at: '2026-04-21T12:00:00Z',
-    v2_reserved: {
-      ratchet_supported: false,
-      onion_supported: false,
-      group_supported: false,
+    updatedAt: '2026-04-21T12:00:00Z',
+    v2Reserved: {
+      ratchetSupported: false,
+      onionSupported: false,
+      groupSupported: false,
     },
   };
 }
@@ -54,33 +63,37 @@ describe('GET /scut/v1/resolve', () => {
     await server.close();
   });
 
-  it('returns 400 when agent_id is missing', async () => {
+  it('returns 400 when ref is missing', async () => {
     const res = await fetch(`${baseUrl}/scut/v1/resolve`);
     expect(res.status).toBe(400);
   });
 
   it('returns 404 when the agent is not registered', async () => {
-    const res = await fetch(`${baseUrl}/scut/v1/resolve?agent_id=0xUnknown`);
+    const ref = encodeURIComponent(`scut://${CHAIN_ID}/${CONTRACT}/99`);
+    const res = await fetch(`${baseUrl}/scut/v1/resolve?ref=${ref}`);
     expect(res.status).toBe(404);
   });
 
-  it('returns the identity document when the agent is registered', async () => {
-    const doc = makeIdentity('0xAlice');
-    registry.set('0xAlice', doc);
-    const res = await fetch(`${baseUrl}/scut/v1/resolve?agent_id=0xAlice`);
+  it('returns the SII document when the agent is registered', async () => {
+    const doc = makeIdentity('1');
+    registry.set(doc);
+    const ref = formatScutUri(doc.agentRef);
+    const res = await fetch(`${baseUrl}/scut/v1/resolve?ref=${encodeURIComponent(ref)}`);
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { document: IdentityDocument; cache_ttl_seconds: number };
-    expect(body.document.agent_id).toBe('0xAlice');
+    const body = (await res.json()) as { document: SiiDocument; cache_ttl_seconds: number; ref: string };
+    expect(body.document.agentRef).toEqual(doc.agentRef);
+    expect(body.ref).toBe(ref);
     expect(body.cache_ttl_seconds).toBe(60);
   });
 
   it('?fresh=1 bypasses the cache', async () => {
-    const doc = makeIdentity('0xAlice');
-    registry.set('0xAlice', doc);
-    const first = await fetch(`${baseUrl}/scut/v1/resolve?agent_id=0xAlice`);
+    const doc = makeIdentity('1');
+    registry.set(doc);
+    const ref = encodeURIComponent(formatScutUri(doc.agentRef));
+    const first = await fetch(`${baseUrl}/scut/v1/resolve?ref=${ref}`);
     const firstBody = (await first.json()) as { fetched_at: string };
 
-    const second = await fetch(`${baseUrl}/scut/v1/resolve?agent_id=0xAlice&fresh=1`);
+    const second = await fetch(`${baseUrl}/scut/v1/resolve?ref=${ref}&fresh=1`);
     const secondBody = (await second.json()) as { fetched_at: string };
 
     expect(Date.parse(secondBody.fetched_at)).toBeGreaterThanOrEqual(
@@ -90,22 +103,26 @@ describe('GET /scut/v1/resolve', () => {
 });
 
 describe('JsonFileRegistry', () => {
-  it('loads and validates identity documents from a JSON file', async () => {
+  it('loads and validates SII documents from a JSON file', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'scut-resolver-'));
     const path = join(dir, 'registry.json');
-    const payload = { '0xAlice': makeIdentity('0xAlice') };
-    writeFileSync(path, JSON.stringify(payload));
+    const doc = makeIdentity('1');
+    const key = formatScutUri(doc.agentRef);
+    writeFileSync(path, JSON.stringify({ [key]: doc }));
 
     const registry = new JsonFileRegistry(path);
     await registry.load();
-    const doc = await registry.lookup('0xAlice');
-    expect(doc?.agent_id).toBe('0xAlice');
+    const out = await registry.lookup(key);
+    expect(out?.agentRef).toEqual(doc.agentRef);
   });
 
-  it('rejects registries whose key does not match the document agent_id', async () => {
+  it('rejects registries whose key does not match the document agentRef', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'scut-resolver-'));
     const path = join(dir, 'registry.json');
-    writeFileSync(path, JSON.stringify({ '0xWrong': makeIdentity('0xAlice') }));
+    writeFileSync(
+      path,
+      JSON.stringify({ 'scut://8453/0x0000000000000000000000000000000000000000/1': makeIdentity('1') }),
+    );
     const registry = new JsonFileRegistry(path);
     await expect(registry.load()).rejects.toThrow(/does not match/);
   });

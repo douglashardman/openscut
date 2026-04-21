@@ -3,7 +3,7 @@ import { PROTOCOL_VERSION, VERSION } from '../src/index.js';
 
 describe('@openscut/core smoke', () => {
   it('exports a version', () => {
-    expect(VERSION).toBe('0.1.0');
+    expect(VERSION).toBe('0.2.0');
     expect(PROTOCOL_VERSION).toBe(1);
   });
 });

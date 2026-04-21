@@ -16,21 +16,26 @@ describe('demo stack', () => {
     await stack.close();
   });
 
-  it('boots with a pair of agents registered in the resolver', () => {
-    expect(stack.agents).toHaveLength(2);
-    expect(stack.agents.map((a) => a.role).sort()).toEqual(['A', 'B']);
+  it('boots with the unique agents referenced by the provided scenarios', () => {
+    expect(stack.agentsByRef.size).toBe(2);
+    const refs = [...stack.agentsByRef.keys()];
+    expect(refs).toContain(SCENARIOS[0]!.a.ref);
+    expect(refs).toContain(SCENARIOS[0]!.b.ref);
   });
 
   it('runs a scenario end-to-end and produces both envelopes on the relay', async () => {
-    const [a, b] = stack.agents;
     const scenario = {
       ...SCENARIOS[0]!,
       startOffsetMs: 0,
       turns: SCENARIOS[0]!.turns.map((t) => ({ ...t, sendOffsetMs: t.sendOffsetMs })),
     };
-    await runScenario(scenario, { A: a!, B: b! }, Date.now());
-    const received = await b!.client.receive();
-    const receivedByA = await a!.client.receive();
+    await runScenario(scenario, stack.agentsByRef, Date.now());
+    const a = stack.agentsByRef.get(scenario.a.ref)!;
+    const b = stack.agentsByRef.get(scenario.b.ref)!;
+    const [received, receivedByA] = await Promise.all([
+      b.client.receive(),
+      a.client.receive(),
+    ]);
     const allBodies = [...received.map((m) => m.body), ...receivedByA.map((m) => m.body)];
     expect(allBodies).toContain(scenario.turns[0]!.body);
     expect(allBodies).toContain(scenario.turns[1]!.body);
@@ -66,13 +71,12 @@ describe('demo stack', () => {
     })();
 
     try {
-      const [a, b] = stack.agents;
       const scenario = {
         ...SCENARIOS[0]!,
         startOffsetMs: 0,
         turns: SCENARIOS[0]!.turns.map((t) => ({ ...t, sendOffsetMs: t.sendOffsetMs })),
       };
-      await runScenario(scenario, { A: a!, B: b! }, Date.now());
+      await runScenario(scenario, stack.agentsByRef, Date.now());
 
       const deadline = Date.now() + 2000;
       while (

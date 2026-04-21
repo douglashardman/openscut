@@ -1,55 +1,66 @@
 import sodium from 'libsodium-wrappers';
 import {
   buildEnvelope,
+  formatScutUri,
   generateEncryptionKeypair,
   generateSigningKeypair,
   type Envelope,
-  type IdentityDocument,
+  type ScutUri,
+  type SiiDocument,
 } from '@openscut/core';
 import type { RelayConfig } from '../src/config.js';
 import { createRelayServer, type RelayServer } from '../src/server.js';
 import type { Resolver } from '../src/keystore.js';
 import { ackChallenge, pickupChallenge } from '../src/auth.js';
 
+const TEST_CONTRACT = '0x0000000000000000000000000000000000001111';
+const TEST_CHAIN_ID = 8453;
+let nextTestTokenId = 1;
+
 export interface TestAgent {
-  id: string;
+  ref: ScutUri;
+  agentRef: { contract: string; tokenId: string; chainId: number };
   signing: { publicKey: string; privateKey: string };
   encryption: { publicKey: string; privateKey: string };
-  identity: IdentityDocument;
+  identity: SiiDocument;
 }
 
-export async function makeTestAgent(id: string): Promise<TestAgent> {
+export async function makeTestAgent(label?: string): Promise<TestAgent> {
+  const tokenId = String(nextTestTokenId++);
+  const agentRef = { contract: TEST_CONTRACT, tokenId, chainId: TEST_CHAIN_ID };
+  const ref = formatScutUri(agentRef);
   const signing = await generateSigningKeypair();
   const encryption = await generateEncryptionKeypair();
-  const identity: IdentityDocument = {
-    protocol_version: 1,
-    agent_id: id,
+  const identity: SiiDocument = {
+    siiVersion: 1,
+    agentRef,
     keys: {
-      signing: { algorithm: 'ed25519', public_key: signing.publicKey },
-      encryption: { algorithm: 'x25519', public_key: encryption.publicKey },
+      signing: { algorithm: 'ed25519', publicKey: signing.publicKey },
+      encryption: { algorithm: 'x25519', publicKey: encryption.publicKey },
     },
     relays: [{ host: 'relay.test', priority: 10, protocols: ['scut/1'] }],
     capabilities: ['scut/1'],
-    updated_at: new Date().toISOString(),
-    v2_reserved: {
-      ratchet_supported: false,
-      onion_supported: false,
-      group_supported: false,
+    displayName: label,
+    updatedAt: new Date().toISOString(),
+    v2Reserved: {
+      ratchetSupported: false,
+      onionSupported: false,
+      groupSupported: false,
     },
   };
-  return { id, signing, encryption, identity };
+  return { ref, agentRef, signing, encryption, identity };
 }
 
 export class InMemoryResolver implements Resolver {
-  private readonly registry = new Map<string, IdentityDocument>();
+  private readonly registry = new Map<string, SiiDocument>();
 
   register(agent: TestAgent): void {
-    this.registry.set(agent.id, agent.identity);
+    this.registry.set(agent.ref, agent.identity);
   }
 
-  async resolve(agentId: string): Promise<IdentityDocument> {
-    const doc = this.registry.get(agentId);
-    if (!doc) throw new Error(`unknown agent_id ${agentId}`);
+  async resolve(ref: ScutUri): Promise<SiiDocument> {
+    const doc = this.registry.get(ref);
+    if (!doc) throw new Error(`unknown ref ${ref}`);
     return doc;
   }
 }
@@ -93,8 +104,8 @@ export async function buildEnvelopeFor(
   ttlSeconds = 3600,
 ): Promise<Envelope> {
   return buildEnvelope({
-    from: from.id,
-    to: to.id,
+    from: from.ref,
+    to: to.ref,
     body,
     senderSigningPrivateKey: from.signing.privateKey,
     recipientEncryptionPublicKey: to.encryption.publicKey,
@@ -112,7 +123,7 @@ export async function signedHeader(
   const sk = sodium.from_base64(agent.signing.privateKey, sodium.base64_variants.ORIGINAL);
   const sig = sodium.crypto_sign_detached(challenge, sk);
   const sigB64 = sodium.to_base64(sig, sodium.base64_variants.ORIGINAL);
-  return `SCUT-Signature agent_id=${agent.id},ts=${ts},nonce=${nonce},sig=${sigB64}`;
+  return `SCUT-Signature agent_id=${agent.ref},ts=${ts},nonce=${nonce},sig=${sigB64}`;
 }
 
 export async function pickupHeader(agent: TestAgent): Promise<string> {
@@ -122,7 +133,7 @@ export async function pickupHeader(agent: TestAgent): Promise<string> {
     sodium.randombytes_buf(16),
     sodium.base64_variants.ORIGINAL,
   );
-  return signedHeader(agent, pickupChallenge(agent.id, ts, nonce), ts, nonce);
+  return signedHeader(agent, pickupChallenge(agent.ref, ts, nonce), ts, nonce);
 }
 
 export async function ackHeader(agent: TestAgent, envelopeIds: readonly string[]): Promise<string> {
@@ -132,5 +143,5 @@ export async function ackHeader(agent: TestAgent, envelopeIds: readonly string[]
     sodium.randombytes_buf(16),
     sodium.base64_variants.ORIGINAL,
   );
-  return signedHeader(agent, ackChallenge(agent.id, ts, nonce, envelopeIds), ts, nonce);
+  return signedHeader(agent, ackChallenge(agent.ref, ts, nonce, envelopeIds), ts, nonce);
 }

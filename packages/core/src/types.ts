@@ -1,12 +1,32 @@
 export const PROTOCOL_VERSION = 1 as const;
 
-export type AgentId = string;
+/** Canonical wire form of an agent's identifier: scut://<chainId>/<contract>/<tokenId>. See SPEC §4.6. */
+export type ScutUri = string;
+
+/**
+ * Back-compat alias. v0.1 code called this `AgentId` and carried a
+ * short hex string; in v0.2 an "agent id" is a scut:// URI.
+ * Retained as a type alias to keep existing imports stable.
+ */
+export type AgentId = ScutUri;
+
+/** Structured form of an agent's on-chain reference. See SPEC §4.3. */
+export interface AgentRef {
+  /** Lowercase 0x-prefixed 40-char hex contract address. */
+  contract: string;
+  /** Decimal token id. */
+  tokenId: string;
+  /** EIP-155 chain id. Base mainnet = 8453. */
+  chainId: number;
+}
 
 export interface Envelope {
   protocol_version: 1;
   envelope_id: string;
-  from: AgentId;
-  to: AgentId;
+  /** Sender's scut:// URI (see §4.6). */
+  from: ScutUri;
+  /** Recipient's scut:// URI (see §4.6). */
+  to: ScutUri;
   sent_at: string;
   ttl_seconds: number;
   ciphertext: string;
@@ -37,22 +57,38 @@ export interface RelayEntry {
   protocols: string[];
 }
 
-export interface IdentityDocument {
-  protocol_version: 1;
-  agent_id: AgentId;
+/**
+ * SII v1 identity document. Camel-case throughout per SPEC §4.3.
+ * `agentRef` replaces v0.1's `agent_id` string: it self-identifies
+ * the contract, tokenId, and chain so clients can cross-check that
+ * a fetched document matches the lookup triple.
+ */
+export interface SiiDocument {
+  siiVersion: 1;
+  agentRef: AgentRef;
   keys: {
-    signing: { algorithm: 'ed25519'; public_key: string };
-    encryption: { algorithm: 'x25519'; public_key: string };
+    signing: { algorithm: 'ed25519'; publicKey: string };
+    encryption: { algorithm: 'x25519'; publicKey: string };
   };
   relays: RelayEntry[];
   capabilities: string[];
-  updated_at: string;
-  v2_reserved: {
-    ratchet_supported: boolean;
-    onion_supported: boolean;
-    group_supported: boolean;
+  displayName?: string;
+  updatedAt?: string;
+  issuer?: { name?: string; url?: string };
+  v2Reserved?: {
+    ratchetSupported: boolean;
+    onionSupported: boolean;
+    groupSupported: boolean;
   };
 }
+
+/**
+ * Back-compat alias. v0.1 called the identity document
+ * `IdentityDocument` with snake_case fields. v0.2 renamed to
+ * `SiiDocument` with camelCase per SPEC §4.3. Alias kept so
+ * existing imports compile while callers migrate.
+ */
+export type IdentityDocument = SiiDocument;
 
 export interface Ed25519KeyPair {
   publicKey: string;

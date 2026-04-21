@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { revealScriptFromScenarios, SCENARIOS } from '../src/scenarios.js';
+import { AGENT_REFS, revealScriptFromScenarios, SCENARIOS } from '../src/scenarios.js';
 
 describe('SCENARIOS fixture', () => {
   it('contains exactly 5 scenarios with unique ids', () => {
@@ -8,9 +8,30 @@ describe('SCENARIOS fixture', () => {
     expect(ids.size).toBe(5);
   });
 
-  it('has unique agent ids across all scenarios', () => {
-    const allIds = SCENARIOS.flatMap((s) => [s.a.id, s.b.id]);
-    expect(new Set(allIds).size).toBe(allIds.length);
+  it('has exactly five unique agent refs across all scenarios (agent reuse is by design)', () => {
+    const allRefs = SCENARIOS.flatMap((s) => [s.a.ref, s.b.ref]);
+    const unique = new Set(allRefs);
+    expect(unique.size).toBe(5);
+    expect(unique).toEqual(
+      new Set([
+        AGENT_REFS.ALICE,
+        AGENT_REFS.BOB,
+        AGENT_REFS.DELIVERY,
+        AGENT_REFS.HVAC,
+        AGENT_REFS.CONTRACTOR,
+      ]),
+    );
+  });
+
+  it('uses Alice as agent A in every scenario (Alice appears in all 5)', () => {
+    for (const scenario of SCENARIOS) {
+      expect(scenario.a.ref).toBe(AGENT_REFS.ALICE);
+    }
+  });
+
+  it('uses Bob as agent B in scenarios 1 and 3 (recurring relationship)', () => {
+    expect(SCENARIOS[0]!.b.ref).toBe(AGENT_REFS.BOB);
+    expect(SCENARIOS[2]!.b.ref).toBe(AGENT_REFS.BOB);
   });
 
   it('has at least one turn and a valid reveal target for each scenario', () => {
@@ -45,8 +66,8 @@ describe('revealScriptFromScenarios', () => {
     for (let i = 0; i < SCENARIOS.length; i++) {
       const scenario = SCENARIOS[i]!;
       const turn = scenario.turns[scenario.revealTurn]!;
-      const expectedFrom = turn.fromRole === 'A' ? scenario.a.id : scenario.b.id;
-      const expectedTo = turn.fromRole === 'A' ? scenario.b.id : scenario.a.id;
+      const expectedFrom = turn.fromRole === 'A' ? scenario.a.ref : scenario.b.ref;
+      const expectedTo = turn.fromRole === 'A' ? scenario.b.ref : scenario.a.ref;
       expect(script[i]!.match.from).toBe(expectedFrom);
       expect(script[i]!.match.to).toBe(expectedTo);
       expect(script[i]!.at_ms_from_start).toBe(scenario.revealAtMsFromStart);

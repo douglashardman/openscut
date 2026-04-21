@@ -66,7 +66,7 @@ export class Keyring {
       const opened = await openEnvelope({
         envelope,
         recipientEncryptionPrivateKey: entry.encryptionPrivateKey,
-        senderSigningPublicKey: senderDoc.keys.signing.public_key,
+        senderSigningPublicKey: senderDoc.keys.signing.publicKey,
       });
       return opened.body;
     } catch {

@@ -1,7 +1,7 @@
 import { createPublicClient, http, type Address, type PublicClient } from 'viem';
-import type { IdentityDocument } from '@openscut/core';
+import { parseScutUri, type SiiDocument } from '@openscut/core';
 import type { Registry } from '../registry.js';
-import { siiDocumentSchema, type AgentRef, type SiiDocument } from '../schema/sii.js';
+import { siiDocumentSchema, type AgentRef } from '../schema/sii.js';
 
 export interface SiiRegistryOptions {
   /** EIP-155 chain id the resolver is reading from (e.g. 8453 for Base mainnet). */
@@ -29,15 +29,11 @@ const SII_ABI = [
 ] as const;
 
 /**
- * SII-aware registry. Given an AgentRef, calls scutIdentityURI on the
- * specified contract, fetches the returned URI, validates the returned
- * JSON against the SII document schema, and returns the document.
- *
- * Scope note: returns the SII document shape, not the legacy v0.1
- * IdentityDocument shape. The adapter layer that bridges SII documents
- * into the existing core IdentityDocument type lives in resolver/src/
- * registry.ts during the v0.1→v0.2 cascade; once the cascade lands,
- * the core IdentityDocument will be replaced by SiiDocument.
+ * SII-aware registry. Given an AgentRef (or scut:// URI), calls
+ * `scutIdentityURI` on the specified contract, fetches the returned
+ * URI, validates against the SII document schema, and returns the
+ * SII document. No adapter layer — the document shape that flows
+ * upward IS the SII shape all the way to clients.
  */
 export class SIIRegistry implements Registry {
   private readonly client: PublicClient;
@@ -50,7 +46,7 @@ export class SIIRegistry implements Registry {
     this.chainId = opts.chainId;
     this.contractAddress = opts.contractAddress.toLowerCase() as Address;
     this.fetchImpl = opts.fetchImpl ?? fetch;
-    this.ipfsGateway = (opts.ipfsGateway ?? 'https://ipfs.io/ipfs/').replace(/\/$/, '/') ;
+    this.ipfsGateway = (opts.ipfsGateway ?? 'https://ipfs.io/ipfs/').replace(/\/$/, '/');
     this.client = opts.client ?? createPublicClient({ transport: http(opts.rpcUrl) });
   }
 
@@ -81,7 +77,7 @@ export class SIIRegistry implements Registry {
     const body = await this.fetchUri(uri);
     let parsed: SiiDocument;
     try {
-      parsed = siiDocumentSchema.parse(JSON.parse(body));
+      parsed = siiDocumentSchema.parse(JSON.parse(body)) as SiiDocument;
     } catch (err) {
       throw new SIIRegistryError(
         `SII document at ${uri} failed schema validation: ${(err as Error).message}`,
@@ -104,21 +100,25 @@ export class SIIRegistry implements Registry {
   }
 
   /**
-   * Legacy Registry.lookup entry point. Accepts either a bare tokenId or
-   * a scut:// URI; returns the SII document in the v0.1 IdentityDocument
-   * shape (for backwards compatibility with the existing resolver route).
-   *
-   * During the v0.2 cascade, callers migrate to lookupRef and this
-   * method goes away.
+   * Registry interface entry point. Accepts a scut:// URI or a bare
+   * tokenId (which is resolved against the configured default
+   * contract). Returns the SII document in its native camelCase
+   * shape — no legacy bridging.
    */
-  async lookup(agentId: string): Promise<IdentityDocument | undefined> {
-    const ref = agentId.startsWith('scut://')
-      ? parseScutUriOrThrow(agentId)
-      : ({ chainId: this.chainId, contract: this.contractAddress, tokenId: agentId } as AgentRef);
-
-    const doc = await this.lookupRef(ref);
-    if (!doc) return undefined;
-    return toLegacyIdentityDocument(doc);
+  async lookup(ref: string): Promise<SiiDocument | undefined> {
+    const parsed = parseScutUri(ref);
+    const agentRef: AgentRef = parsed ?? {
+      chainId: this.chainId,
+      contract: this.contractAddress,
+      tokenId: ref,
+    };
+    if (!parsed && !/^\d+$/.test(ref)) {
+      throw new SIIRegistryError(
+        `lookup expected a scut:// URI or a decimal token id, got ${ref}`,
+        'bad_ref',
+      );
+    }
+    return this.lookupRef(agentRef);
   }
 
   private async fetchUri(uri: string): Promise<string> {
@@ -144,18 +144,6 @@ export class SIIRegistry implements Registry {
   }
 }
 
-function parseScutUriOrThrow(uri: string): AgentRef {
-  const match = /^scut:\/\/(\d+)\/(0x[a-fA-F0-9]{40})\/(\d+)$/u.exec(uri);
-  if (!match) {
-    throw new SIIRegistryError(`invalid scut:// URI: ${uri}`, 'bad_ref');
-  }
-  return {
-    chainId: Number(match[1]),
-    contract: match[2]!.toLowerCase(),
-    tokenId: match[3]!,
-  };
-}
-
 function decodeDataUri(uri: string): string {
   const comma = uri.indexOf(',');
   if (comma < 0) throw new SIIRegistryError('malformed data: URI', 'fetch_error');
@@ -165,38 +153,6 @@ function decodeDataUri(uri: string): string {
     return Buffer.from(payload, 'base64').toString('utf-8');
   }
   return decodeURIComponent(payload);
-}
-
-/**
- * Transitional shape bridge: SII documents use camelCase and nest
- * agentRef, while the current core IdentityDocument is the v0.1
- * snake-case shape. Map the subset the existing resolver route and
- * clients need. The Day-3-afternoon cascade replaces
- * IdentityDocument with SiiDocument throughout.
- */
-function toLegacyIdentityDocument(doc: SiiDocument): IdentityDocument {
-  return {
-    protocol_version: 1,
-    agent_id: `scut://${doc.agentRef.chainId}/${doc.agentRef.contract}/${doc.agentRef.tokenId}`,
-    keys: {
-      signing: {
-        algorithm: doc.keys.signing.algorithm,
-        public_key: doc.keys.signing.publicKey,
-      },
-      encryption: {
-        algorithm: doc.keys.encryption.algorithm,
-        public_key: doc.keys.encryption.publicKey,
-      },
-    },
-    relays: doc.relays,
-    capabilities: doc.capabilities,
-    updated_at: doc.updatedAt ?? new Date().toISOString(),
-    v2_reserved: {
-      ratchet_supported: doc.v2Reserved?.ratchetSupported ?? false,
-      onion_supported: doc.v2Reserved?.onionSupported ?? false,
-      group_supported: doc.v2Reserved?.groupSupported ?? false,
-    },
-  };
 }
 
 export type SIIRegistryErrorCode =

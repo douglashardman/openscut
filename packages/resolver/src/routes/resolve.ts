@@ -1,10 +1,11 @@
 import type { FastifyInstance, FastifyReply } from 'fastify';
-import type { IdentityDocument } from '@openscut/core';
+import { formatScutUri } from '@openscut/core';
+import type { SiiDocument } from '@openscut/core';
 import type { ResolverConfig } from '../config.js';
 import type { Registry } from '../registry.js';
 
 interface CachedEntry {
-  document: IdentityDocument;
+  document: SiiDocument;
   fetchedAt: number;
   sourceKey: string;
 }
@@ -24,7 +25,7 @@ export function registerResolveRoute(app: FastifyInstance, deps: ResolveDeps): v
     if (!key) {
       return reply
         .code(400)
-        .send({ error: 'missing required query parameter: ref (or legacy agent_id)' });
+        .send({ error: 'missing required query parameter: ref' });
     }
 
     const fresh = query.fresh === '1' || query.fresh === 'true';
@@ -33,7 +34,7 @@ export function registerResolveRoute(app: FastifyInstance, deps: ResolveDeps): v
       return respond(reply, key, cached, deps.config.cache.ttlSeconds);
     }
 
-    let document: IdentityDocument | undefined;
+    let document: SiiDocument | undefined;
     try {
       document = await deps.registry.lookup(key);
     } catch (err) {
@@ -58,11 +59,12 @@ function respond(
   ttlSeconds: number,
 ): FastifyReply {
   return reply.code(200).send({
-    ref: key,
-    agent_id: entry.document.agent_id,
+    ref: formatScutUri(entry.document.agentRef),
     document: entry.document,
     fetched_at: new Date(entry.fetchedAt).toISOString(),
     source: 'registry',
     cache_ttl_seconds: ttlSeconds,
+    // Echo the lookup key for callers that still inspect it.
+    requested_ref: key,
   });
 }

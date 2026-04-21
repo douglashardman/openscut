@@ -1,20 +1,20 @@
 import { buildAckAuthorization, buildPickupAuthorization } from './auth-header.js';
 import { buildEnvelope, openEnvelope, type OpenedEnvelope } from './envelope.js';
-import type { Envelope, IdentityDocument } from './types.js';
+import type { Envelope, ScutUri, SiiDocument } from './types.js';
 
 export interface ResolverClient {
-  resolve(agentId: string): Promise<IdentityDocument>;
+  resolve(ref: ScutUri): Promise<SiiDocument>;
 }
 
 export class HttpResolverClient implements ResolverClient {
   constructor(private readonly baseUrl: string) {}
 
-  async resolve(agentId: string): Promise<IdentityDocument> {
-    const url = `${this.baseUrl.replace(/\/$/, '')}/scut/v1/resolve?agent_id=${encodeURIComponent(agentId)}`;
+  async resolve(ref: ScutUri): Promise<SiiDocument> {
+    const url = `${this.baseUrl.replace(/\/$/, '')}/scut/v1/resolve?ref=${encodeURIComponent(ref)}`;
     const res = await fetch(url, { headers: { accept: 'application/json' } });
-    if (res.status === 404) throw new ScutClientError(`agent_id ${agentId} not found`, 'not_found');
+    if (res.status === 404) throw new ScutClientError(`ref ${ref} not found`, 'not_found');
     if (!res.ok) throw new ScutClientError(`resolver returned ${res.status}`, 'resolver_error');
-    const body = (await res.json()) as { document: IdentityDocument };
+    const body = (await res.json()) as { document: SiiDocument };
     return body.document;
   }
 }
@@ -35,14 +35,15 @@ export class ScutClientError extends Error {
 }
 
 export interface ScutClientOptions {
-  agentId: string;
+  /** This client's scut:// URI, used as the envelope `from` field. */
+  agentRef: ScutUri;
   signingPrivateKey: string;
   signingPublicKey: string;
   encryptionPrivateKey: string;
   encryptionPublicKey: string;
   resolver: ResolverClient;
   /** Explicit relay override for the sender's own inbox. If omitted, the client
-   *  resolves its own identity document and uses its relay list. */
+   *  resolves its own SII document and uses its relay list. */
   relays?: readonly string[];
   fetchImpl?: typeof fetch;
 }
@@ -61,17 +62,17 @@ export class ScutClient {
     this.fetch = opts.fetchImpl ?? fetch;
   }
 
-  async send(params: { to: string; body: string; ttlSeconds?: number }): Promise<SendResult> {
+  async send(params: { to: ScutUri; body: string; ttlSeconds?: number }): Promise<SendResult> {
     const recipientDoc = await this.opts.resolver.resolve(params.to);
     if (recipientDoc.relays.length === 0) {
       throw new ScutClientError('recipient has no relays', 'no_relays');
     }
     const envelope = await buildEnvelope({
-      from: this.opts.agentId,
+      from: this.opts.agentRef,
       to: params.to,
       body: params.body,
       senderSigningPrivateKey: this.opts.signingPrivateKey,
-      recipientEncryptionPublicKey: recipientDoc.keys.encryption.public_key,
+      recipientEncryptionPublicKey: recipientDoc.keys.encryption.publicKey,
       ttlSeconds: params.ttlSeconds,
     });
 
@@ -124,7 +125,7 @@ export class ScutClient {
           const msg = await openEnvelope({
             envelope,
             recipientEncryptionPrivateKey: this.opts.encryptionPrivateKey,
-            senderSigningPublicKey: senderDoc.keys.signing.public_key,
+            senderSigningPublicKey: senderDoc.keys.signing.publicKey,
           });
           opened.push(msg);
         } catch {
@@ -143,7 +144,7 @@ export class ScutClient {
       : this.opts.relays ?? (await this.ownRelays());
     const dropped = new Set<string>();
     const authorization = await buildAckAuthorization({
-      agentId: this.opts.agentId,
+      agentId: this.opts.agentRef,
       signingPrivateKey: this.opts.signingPrivateKey,
       envelopeIds,
     });
@@ -163,10 +164,10 @@ export class ScutClient {
 
   private async pickupFrom(host: string, since?: Date): Promise<Envelope[]> {
     const authorization = await buildPickupAuthorization({
-      agentId: this.opts.agentId,
+      agentId: this.opts.agentRef,
       signingPrivateKey: this.opts.signingPrivateKey,
     });
-    const query = new URLSearchParams({ for: this.opts.agentId });
+    const query = new URLSearchParams({ for: this.opts.agentRef });
     if (since) query.set('since', since.toISOString());
     const url = this.relayUrl(host, `/scut/v1/pickup?${query.toString()}`);
     const res = await this.fetch(url, { headers: { authorization } });
@@ -176,7 +177,7 @@ export class ScutClient {
   }
 
   private async ownRelays(): Promise<string[]> {
-    const doc = await this.opts.resolver.resolve(this.opts.agentId);
+    const doc = await this.opts.resolver.resolve(this.opts.agentRef);
     return [...doc.relays]
       .sort((a, b) => a.priority - b.priority)
       .map((r) => r.host);

@@ -1,18 +1,27 @@
 import { readFile, watch } from 'node:fs/promises';
-import type { IdentityDocument } from '@openscut/core';
-import { identityDocumentSchema } from './schema.js';
+import type { SiiDocument } from '@openscut/core';
+import { formatScutUri } from '@openscut/core';
+import { siiDocumentSchema } from './schema/sii.js';
 
 export interface Registry {
-  lookup(agentId: string): Promise<IdentityDocument | undefined>;
+  /**
+   * Look up an SII document by `ref`. `ref` may be a scut:// URI
+   * (canonical form) or any backend-specific key — JSON-file registries
+   * use the scut:// URI as the map key.
+   */
+  lookup(ref: string): Promise<SiiDocument | undefined>;
 }
 
 /**
- * Registry backed by a JSON file mapping agent_id → identity document.
+ * Registry backed by a JSON file mapping scut:// URI → SII document.
  * Reloads the file on mtime change so the demo orchestrator can edit
  * identities without bouncing the resolver.
+ *
+ * The JSON file is an object keyed by the canonical scut:// URI; each
+ * value is a full SII document (see SPEC §4.3).
  */
 export class JsonFileRegistry implements Registry {
-  private entries: Map<string, IdentityDocument> = new Map();
+  private entries: Map<string, SiiDocument> = new Map();
   private lastLoadedAt = 0;
 
   constructor(
@@ -23,21 +32,22 @@ export class JsonFileRegistry implements Registry {
   async load(): Promise<void> {
     const raw = await readFile(this.path, 'utf-8');
     const parsed = JSON.parse(raw) as Record<string, unknown>;
-    const next = new Map<string, IdentityDocument>();
-    for (const [agentId, doc] of Object.entries(parsed)) {
-      const validated = identityDocumentSchema.parse(doc);
-      if (validated.agent_id !== agentId) {
+    const next = new Map<string, SiiDocument>();
+    for (const [key, doc] of Object.entries(parsed)) {
+      const validated = siiDocumentSchema.parse(doc);
+      const canonical = formatScutUri(validated.agentRef);
+      if (key !== canonical) {
         throw new Error(
-          `registry key ${agentId} does not match document agent_id ${validated.agent_id}`,
+          `registry key ${key} does not match document agentRef ${canonical}`,
         );
       }
-      next.set(agentId, validated as IdentityDocument);
+      next.set(canonical, validated as SiiDocument);
     }
     this.entries = next;
     this.lastLoadedAt = Date.now();
   }
 
-  async lookup(agentId: string): Promise<IdentityDocument | undefined> {
+  async lookup(ref: string): Promise<SiiDocument | undefined> {
     if (Date.now() - this.lastLoadedAt > this.reloadEveryMs) {
       try {
         await this.load();
@@ -45,7 +55,7 @@ export class JsonFileRegistry implements Registry {
         // Swallow reload failures to keep serving the last good snapshot.
       }
     }
-    return this.entries.get(agentId);
+    return this.entries.get(ref);
   }
 
   /** Test helper: install a watch that reloads on file change. */
@@ -62,13 +72,19 @@ export class JsonFileRegistry implements Registry {
 }
 
 export class InMemoryRegistry implements Registry {
-  private readonly entries = new Map<string, IdentityDocument>();
+  private readonly entries = new Map<string, SiiDocument>();
 
-  set(agentId: string, doc: IdentityDocument): void {
-    this.entries.set(agentId, doc);
+  /**
+   * Register an SII document. The key is the document's agentRef in
+   * scut:// URI form, computed from the document itself — callers
+   * don't pass it explicitly.
+   */
+  set(doc: SiiDocument): void {
+    const ref = formatScutUri(doc.agentRef);
+    this.entries.set(ref, doc);
   }
 
-  async lookup(agentId: string): Promise<IdentityDocument | undefined> {
-    return this.entries.get(agentId);
+  async lookup(ref: string): Promise<SiiDocument | undefined> {
+    return this.entries.get(ref);
   }
 }

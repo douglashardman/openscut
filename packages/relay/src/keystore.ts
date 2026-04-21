@@ -1,19 +1,19 @@
-import type { IdentityDocument } from '@openscut/core';
+import type { ScutUri, SiiDocument } from '@openscut/core';
 
 export interface Resolver {
-  resolve(agentId: string): Promise<IdentityDocument>;
+  resolve(ref: ScutUri): Promise<SiiDocument>;
 }
 
 export class HttpResolver implements Resolver {
   constructor(private readonly baseUrl: string) {}
 
-  async resolve(agentId: string): Promise<IdentityDocument> {
-    const url = `${this.baseUrl.replace(/\/$/, '')}/scut/v1/resolve?agent_id=${encodeURIComponent(agentId)}`;
+  async resolve(ref: ScutUri): Promise<SiiDocument> {
+    const url = `${this.baseUrl.replace(/\/$/, '')}/scut/v1/resolve?ref=${encodeURIComponent(ref)}`;
     const res = await fetch(url, { headers: { accept: 'application/json' } });
     if (!res.ok) {
-      throw new Error(`resolver returned ${res.status} for ${agentId}`);
+      throw new Error(`resolver returned ${res.status} for ${ref}`);
     }
-    const body = (await res.json()) as { document: IdentityDocument };
+    const body = (await res.json()) as { document: SiiDocument };
     return body.document;
   }
 }
@@ -32,21 +32,21 @@ export class Keystore {
     private readonly ttlMs: number,
   ) {}
 
-  async getSigningPublicKey(agentId: string): Promise<string> {
-    const cached = this.cache.get(agentId);
+  async getSigningPublicKey(ref: ScutUri): Promise<string> {
+    const cached = this.cache.get(ref);
     if (cached && Date.now() - cached.fetchedAt < this.ttlMs) {
       return cached.signingPublicKey;
     }
-    const doc = await this.resolver.resolve(agentId);
-    this.cache.set(agentId, {
-      signingPublicKey: doc.keys.signing.public_key,
-      encryptionPublicKey: doc.keys.encryption.public_key,
+    const doc = await this.resolver.resolve(ref);
+    this.cache.set(ref, {
+      signingPublicKey: doc.keys.signing.publicKey,
+      encryptionPublicKey: doc.keys.encryption.publicKey,
       fetchedAt: Date.now(),
     });
-    return doc.keys.signing.public_key;
+    return doc.keys.signing.publicKey;
   }
 
-  invalidate(agentId: string): void {
-    this.cache.delete(agentId);
+  invalidate(ref: ScutUri): void {
+    this.cache.delete(ref);
   }
 }

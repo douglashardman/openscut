@@ -1,111 +1,115 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildEnvelope,
+  formatScutUri,
   generateEncryptionKeypair,
   generateSigningKeypair,
-  type IdentityDocument,
   type ResolverClient,
+  type ScutUri,
+  type SiiDocument,
 } from '@openscut/core';
 import { Keyring } from '../src/keyring.js';
 
-function fakeResolver(table: Record<string, IdentityDocument>): ResolverClient {
+const TEST_CONTRACT = '0x0000000000000000000000000000000000002222';
+let nextTokenId = 1;
+
+function fakeResolver(table: Record<string, SiiDocument>): ResolverClient {
   return {
-    async resolve(agentId) {
-      const doc = table[agentId];
-      if (!doc) throw new Error(`unknown ${agentId}`);
+    async resolve(ref) {
+      const doc = table[ref];
+      if (!doc) throw new Error(`unknown ${ref}`);
       return doc;
     },
   };
 }
 
-async function makeAgent(id: string): Promise<{
-  id: string;
+async function makeAgent(label: string): Promise<{
+  ref: ScutUri;
   signing: { publicKey: string; privateKey: string };
   encryption: { publicKey: string; privateKey: string };
-  doc: IdentityDocument;
+  doc: SiiDocument;
 }> {
+  const tokenId = String(nextTokenId++);
+  const agentRef = { contract: TEST_CONTRACT, tokenId, chainId: 8453 };
+  const ref = formatScutUri(agentRef);
   const signing = await generateSigningKeypair();
   const encryption = await generateEncryptionKeypair();
-  const doc: IdentityDocument = {
-    protocol_version: 1,
-    agent_id: id,
+  const doc: SiiDocument = {
+    siiVersion: 1,
+    agentRef,
     keys: {
-      signing: { algorithm: 'ed25519', public_key: signing.publicKey },
-      encryption: { algorithm: 'x25519', public_key: encryption.publicKey },
+      signing: { algorithm: 'ed25519', publicKey: signing.publicKey },
+      encryption: { algorithm: 'x25519', publicKey: encryption.publicKey },
     },
     relays: [{ host: 'relay.test', priority: 10, protocols: ['scut/1'] }],
     capabilities: ['scut/1'],
-    updated_at: new Date().toISOString(),
-    v2_reserved: {
-      ratchet_supported: false,
-      onion_supported: false,
-      group_supported: false,
-    },
+    displayName: label,
+    updatedAt: new Date().toISOString(),
   };
-  return { id, signing, encryption, doc };
+  return { ref, signing, encryption, doc };
 }
 
 describe('Keyring', () => {
   it('reports which agents it holds keys for', async () => {
-    const bob = await makeAgent('0xBob');
+    const bob = await makeAgent('bob');
     const ring = Keyring.fromMap({
-      [bob.id]: { encryptionPrivateKey: bob.encryption.privateKey },
+      [bob.ref]: { encryptionPrivateKey: bob.encryption.privateKey },
     });
-    expect(ring.holdsKeyFor(bob.id)).toBe(true);
-    expect(ring.holdsKeyFor('0xMallory')).toBe(false);
+    expect(ring.holdsKeyFor(bob.ref)).toBe(true);
+    expect(ring.holdsKeyFor('scut://8453/0x0000000000000000000000000000000000009999/1')).toBe(false);
   });
 
   it('decrypts an envelope addressed to a held agent', async () => {
-    const alice = await makeAgent('0xAlice');
-    const bob = await makeAgent('0xBob');
+    const alice = await makeAgent('alice');
+    const bob = await makeAgent('bob');
     const envelope = await buildEnvelope({
-      from: alice.id,
-      to: bob.id,
+      from: alice.ref,
+      to: bob.ref,
       body: 'hello Bob',
       senderSigningPrivateKey: alice.signing.privateKey,
       recipientEncryptionPublicKey: bob.encryption.publicKey,
     });
     const ring = Keyring.fromMap({
-      [bob.id]: { encryptionPrivateKey: bob.encryption.privateKey },
+      [bob.ref]: { encryptionPrivateKey: bob.encryption.privateKey },
     });
     const plaintext = await ring.tryDecrypt(
       envelope,
-      fakeResolver({ [alice.id]: alice.doc }),
+      fakeResolver({ [alice.ref]: alice.doc }),
     );
     expect(plaintext).toBe('hello Bob');
   });
 
   it('returns null when the recipient key is not in the ring', async () => {
-    const alice = await makeAgent('0xAlice');
-    const bob = await makeAgent('0xBob');
+    const alice = await makeAgent('alice');
+    const bob = await makeAgent('bob');
     const envelope = await buildEnvelope({
-      from: alice.id,
-      to: bob.id,
+      from: alice.ref,
+      to: bob.ref,
       body: 'hello Bob',
       senderSigningPrivateKey: alice.signing.privateKey,
       recipientEncryptionPublicKey: bob.encryption.publicKey,
     });
     const ring = Keyring.fromMap({});
-    const plaintext = await ring.tryDecrypt(envelope, fakeResolver({ [alice.id]: alice.doc }));
+    const plaintext = await ring.tryDecrypt(envelope, fakeResolver({ [alice.ref]: alice.doc }));
     expect(plaintext).toBeNull();
   });
 
   it('returns null when signature verification fails', async () => {
-    const alice = await makeAgent('0xAlice');
-    const bob = await makeAgent('0xBob');
+    const alice = await makeAgent('alice');
+    const bob = await makeAgent('bob');
     const envelope = await buildEnvelope({
-      from: alice.id,
-      to: bob.id,
+      from: alice.ref,
+      to: bob.ref,
       body: 'hello Bob',
       senderSigningPrivateKey: alice.signing.privateKey,
       recipientEncryptionPublicKey: bob.encryption.publicKey,
     });
-    const impostor = await makeAgent('0xImpostor');
-    const badDoc: IdentityDocument = { ...alice.doc, keys: impostor.doc.keys };
+    const impostor = await makeAgent('impostor');
+    const badDoc: SiiDocument = { ...alice.doc, keys: impostor.doc.keys };
     const ring = Keyring.fromMap({
-      [bob.id]: { encryptionPrivateKey: bob.encryption.privateKey },
+      [bob.ref]: { encryptionPrivateKey: bob.encryption.privateKey },
     });
-    const plaintext = await ring.tryDecrypt(envelope, fakeResolver({ [alice.id]: badDoc }));
+    const plaintext = await ring.tryDecrypt(envelope, fakeResolver({ [alice.ref]: badDoc }));
     expect(plaintext).toBeNull();
   });
 });
