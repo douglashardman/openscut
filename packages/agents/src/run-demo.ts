@@ -69,7 +69,7 @@ async function main(): Promise<void> {
     `  pnpm --filter scut-monitor run dev -- --relay ${handles.relay.baseUrl} --token '${args.eventsToken}' --keys ${args.keysOut} --resolver ${handles.resolver.baseUrl} --script ${args.scriptOut}`,
   );
   console.error('');
-  console.error('scenarios start in 3s. SIGINT to stop.');
+  console.error('press enter to start scenarios (SIGINT to stop the stack).');
 
   const shutdown = async (): Promise<void> => {
     await handles.close();
@@ -78,7 +78,20 @@ async function main(): Promise<void> {
   process.on('SIGTERM', shutdown);
   process.on('SIGINT', shutdown);
 
-  await new Promise((resolve) => setTimeout(resolve, 3_000));
+  await new Promise<void>((resolve) => {
+    const onData = (): void => {
+      process.stdin.removeListener('data', onData);
+      process.stdin.pause();
+      resolve();
+    };
+    if (process.stdin.isTTY) {
+      process.stdin.resume();
+      process.stdin.once('data', onData);
+    } else {
+      setTimeout(resolve, 3_000);
+    }
+  });
+
   await runAllScenarios(handles);
   console.error('all scenarios completed. SIGINT to exit.');
 }
