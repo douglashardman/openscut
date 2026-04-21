@@ -13,7 +13,10 @@
  * `scut-monitor` at. Scenarios kick off immediately; SIGINT tears
  * everything down.
  */
-import { writeFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { dirname } from 'node:path';
+import { resolve as resolvePath } from 'node:path';
+import { tmpdir } from 'node:os';
 import { runAllScenarios, startDemoStack } from './orchestrator.js';
 import { revealScriptFromScenarios, SCENARIOS } from './scenarios.js';
 import { VERSION } from '@openscut/core';
@@ -32,10 +35,11 @@ function parseArgs(argv: readonly string[]): DemoCliArgs {
     if (!v) throw new Error(`${flag} requires a value`);
     return v;
   };
+  const defaultDir = resolvePath(tmpdir(), 'scut-demo');
   return {
     eventsToken: get('--events-token', 'scut-demo-events-token-default'),
-    keysOut: get('--keys-out', './demo-keys.json'),
-    scriptOut: get('--script-out', './demo-reveal-script.json'),
+    keysOut: resolvePath(get('--keys-out', resolvePath(defaultDir, 'demo-keys.json'))),
+    scriptOut: resolvePath(get('--script-out', resolvePath(defaultDir, 'demo-reveal-script.json'))),
   };
 }
 
@@ -44,6 +48,9 @@ async function main(): Promise<void> {
   console.error(`scut demo · core v${VERSION} · booting...`);
 
   const handles = await startDemoStack({ eventsToken: args.eventsToken });
+
+  await mkdir(dirname(args.keysOut), { recursive: true });
+  await mkdir(dirname(args.scriptOut), { recursive: true });
 
   const keyring: Record<string, { encryption_private_key: string; signing_public_key: string }> = {};
   for (const agent of handles.agents) {
