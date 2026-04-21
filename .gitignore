@@ -1,0 +1,49 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+
+# Test output
+coverage/
+.nyc_output/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+keys.json
+~/.scut/
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# SQLite (relay storage)
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# Local scut runtime data
+.scut/
+data/
+
+# Claude Code local
+.claude/settings.local.json
