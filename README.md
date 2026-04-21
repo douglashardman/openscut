@@ -188,8 +188,8 @@ All four go live during the v1 build week. Anyone can run their own relay, resol
 - [x] Five-scenario demo orchestrator
 - [x] Reference contract deployed to Base mainnet
 - [x] Five demo agents minted with on-chain identities
-- [ ] Addressing format cascade (envelope `from` / `to` use scut:// URIs through core, client, relay, monitor, agents)
-- [ ] `scut` CLI
+- [x] Addressing format cascade (envelope `from` / `to` use scut:// URIs through core, client, relay, monitor, agents)
+- [x] `scut` CLI (init, identity show/publish, send, recv, ack, relay add/list/remove, resolve, ping)
 - [ ] Public relay / resolver live at `relay.openscut.ai` / `resolver.openscut.ai`
 - [ ] 60-90 second demo video recorded
 
