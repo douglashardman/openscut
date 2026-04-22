@@ -27,9 +27,16 @@ export interface DemoAgent {
   client: ScutClient;
 }
 
+export interface ServerHandle {
+  baseUrl: string;
+  close: () => Promise<void>;
+}
+
 export interface DemoHandles {
-  relay: RelayServer & { baseUrl: string };
-  resolver: ResolverServer & { baseUrl: string };
+  /** In-process relay (hermetic mode) or a thin pointer at the external relay. */
+  relay: ServerHandle;
+  /** In-process resolver (hermetic mode) or a thin pointer at the external resolver. */
+  resolver: ServerHandle;
   agentsByRef: Map<ScutUri, DemoAgent>;
   eventsToken: string;
   startedAt: number;
@@ -50,9 +57,22 @@ export interface DemoConfig {
    * Registry override for the in-process resolver. Defaults to an
    * InMemoryRegistry populated with the agents' identity documents
    * (hermetic; for tests). Pass a SIIRegistry to read real on-chain
-   * documents during the live demo.
+   * documents from within the in-process resolver.
    */
   registry?: Registry;
+  /**
+   * External production endpoints. When both are set, the orchestrator
+   * skips spawning in-process relay and resolver; agents push to and
+   * poll from these real services, and the monitor should be pointed
+   * at the same relayUrl for its SSE stream.
+   *
+   * Leave both unset for hermetic mode (default). Set both for the
+   * on-chain-against-production demo.
+   */
+  externalEndpoints?: {
+    relayUrl: string;
+    resolverUrl: string;
+  };
 }
 
 export async function startDemoStack(config: DemoConfig = {}): Promise<DemoHandles> {
@@ -62,41 +82,74 @@ export async function startDemoStack(config: DemoConfig = {}): Promise<DemoHandl
   const scenarios = config.scenarios ?? SCENARIOS;
   const eventsToken = config.eventsToken ?? 'scut-demo-events-token-default';
 
+  const external = config.externalEndpoints;
   const registry = config.registry ?? new InMemoryRegistry();
-  const hermetic = registry instanceof InMemoryRegistry;
+  const hermetic = !external && registry instanceof InMemoryRegistry;
 
-  const resolverServer = await createResolverServer(
-    {
-      listen: { host: '127.0.0.1', port: 0 },
-      registry: {
-        backend: 'json-file' as const,
-        path: '/unused',
-        chainId: 8453,
-        rpcUrl: 'https://mainnet.base.org',
-        ipfsGateway: 'https://ipfs.io/ipfs/',
+  // ---- resolver ----
+
+  let resolverHandle: ServerHandle;
+  let resolverServer: ResolverServer | null = null;
+  if (external) {
+    resolverHandle = {
+      baseUrl: external.resolverUrl,
+      close: async () => {},
+    };
+  } else {
+    resolverServer = await createResolverServer(
+      {
+        listen: { host: '127.0.0.1', port: 0 },
+        registry: {
+          backend: 'json-file' as const,
+          path: '/unused',
+          chainId: 8453,
+          rpcUrl: 'https://mainnet.base.org',
+          ipfsGateway: 'https://ipfs.io/ipfs/',
+        },
+        cache: { ttlSeconds: 60 },
       },
-      cache: { ttlSeconds: 60 },
-    },
-    registry,
-  );
-  const resolverUrl = await resolverServer.app.listen({ host: '127.0.0.1', port: 0 });
+      registry,
+    );
+    const baseUrl = await resolverServer.app.listen({ host: '127.0.0.1', port: 0 });
+    resolverHandle = {
+      baseUrl,
+      close: () => resolverServer!.close(),
+    };
+  }
 
-  const relayServer = await createRelayServer({
-    listen: { host: '127.0.0.1', port: 0 },
-    database: { path: ':memory:' },
-    resolver: { url: resolverUrl, cacheTtlSeconds: 300 },
-    limits: {
-      maxEnvelopeBytes: 102_400,
-      maxTtlSeconds: 604_800,
-      ratePerSenderPerMinute: 120,
-      rateGlobalPerMinute: 120_000,
-      pickupNonceWindowSeconds: 300,
-      clockSkewSeconds: 300,
-    },
-    events: { token: eventsToken, heartbeatSeconds: 20 },
-    eviction: { intervalSeconds: 3600 },
-  });
-  const relayUrl = await relayServer.app.listen({ host: '127.0.0.1', port: 0 });
+  // ---- relay ----
+
+  let relayHandle: ServerHandle;
+  let relayServer: RelayServer | null = null;
+  if (external) {
+    relayHandle = {
+      baseUrl: external.relayUrl,
+      close: async () => {},
+    };
+  } else {
+    relayServer = await createRelayServer({
+      listen: { host: '127.0.0.1', port: 0 },
+      database: { path: ':memory:' },
+      resolver: { url: resolverHandle.baseUrl, cacheTtlSeconds: 300 },
+      limits: {
+        maxEnvelopeBytes: 102_400,
+        maxTtlSeconds: 604_800,
+        ratePerSenderPerMinute: 120,
+        rateGlobalPerMinute: 120_000,
+        pickupNonceWindowSeconds: 300,
+        clockSkewSeconds: 300,
+      },
+      events: { token: eventsToken, heartbeatSeconds: 20 },
+      eviction: { intervalSeconds: 3600 },
+    });
+    const baseUrl = await relayServer.app.listen({ host: '127.0.0.1', port: 0 });
+    relayHandle = {
+      baseUrl,
+      close: () => relayServer!.close(),
+    };
+  }
+
+  // ---- agents ----
 
   const uniqueRefs = new Set<ScutUri>();
   for (const scenario of scenarios) {
@@ -108,7 +161,7 @@ export async function startDemoStack(config: DemoConfig = {}): Promise<DemoHandl
   for (const ref of uniqueRefs) {
     const preset = config.keys?.get(ref);
     const keys = preset ?? (await freshKeys());
-    const agent = await buildAgent(ref, keys, relayUrl, resolverUrl);
+    const agent = await buildAgent(ref, keys, relayHandle.baseUrl, resolverHandle.baseUrl);
     agentsByRef.set(ref, agent);
     if (hermetic) {
       (registry as InMemoryRegistry).set(agent.identity);
@@ -116,14 +169,14 @@ export async function startDemoStack(config: DemoConfig = {}): Promise<DemoHandl
   }
 
   return {
-    relay: Object.assign(relayServer, { baseUrl: relayUrl }),
-    resolver: Object.assign(resolverServer, { baseUrl: resolverUrl }),
+    relay: relayHandle,
+    resolver: resolverHandle,
     agentsByRef,
     eventsToken,
     startedAt: Date.now(),
     async close() {
-      await relayServer.close();
-      await resolverServer.close();
+      await relayHandle.close();
+      await resolverHandle.close();
     },
   };
 }
@@ -162,14 +215,11 @@ async function buildAgent(
     encryptionPrivateKey: keys.encryption.privateKey,
     encryptionPublicKey: keys.encryption.publicKey,
     resolver: new HttpResolverClient(resolverUrl),
-    // Demo stack always routes through the in-process relay regardless of
-    // what the recipient's SII document advertises. The on-chain SII docs
-    // list relay.openscut.ai (forward-looking, not yet live); the demo
-    // ships envelopes over the local relay where both sender and receiver
-    // are attached.
-    outboundRelayOverride: [relayUrl],
-    // Inbox override: poll the same in-process relay, not the advertised one.
-    relays: [relayUrl],
+    // Agents follow the resolved recipient's advertised relay list for
+    // pushes (SPEC §2.3 / §9.2) and their own advertised relay list for
+    // pickups. In hermetic mode those advertise the local in-process
+    // relay; in on-chain mode they advertise relay.openscut.ai.
+    // No dev overrides — the earlier outboundRelayOverride hack is gone.
   });
   return { ref, keys, identity, client };
 }

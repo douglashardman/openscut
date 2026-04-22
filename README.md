@@ -40,11 +40,17 @@ Built in public over a one-week sprint. Daily commits on `main`, daily updates f
 
 **Current test totals:** 125 TypeScript tests (core 27 · monitor 25 · resolver 20 · relay 20 · cli 19 · agents 14) plus 19 Solidity tests.
 
-### Days 4-6 — Production and demo
+### Day 4 (Wed April 22 evening) — Production live
 
-- Thursday: `relay.openscut.ai` and `resolver.openscut.ai` go live on a DigitalOcean droplet (Docker + Caddy + Let's Encrypt + systemd + nightly SQLite backup to Cloudflare R2). After this, the in-process demo's `outboundRelayOverride` dev affordance comes off.
-- Friday: `/ultrareview` pass, security review, dress rehearsal.
-- Saturday: final polish, timing tune.
+- **`relay.openscut.ai` and `resolver.openscut.ai` deployed and serving** on a DigitalOcean droplet running Ubuntu 24.04. Native Node + systemd + Caddy + Let's Encrypt. Nightly restic backups to Cloudflare R2.
+- Source-of-truth deploy config lives in [`ops/`](ops/README.md); production docs in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
+- The `outboundRelayOverride` dev affordance in the demo orchestrator is gone. Agents now follow the SII-advertised relay list through whatever resolver they're pointed at — in-process InMemory (hermetic tests), in-process SII-against-Base (`--on-chain`), or the real public endpoints (`--on-chain --against-prod`).
+- End-to-end verified from outside the droplet: Alice (token 1) resolves through `https://resolver.openscut.ai`, `SIIRegistry` reads Base mainnet RPC, fetches the URI, validates, returns.
+
+### Days 5-6 — Polish and demo
+
+- Friday: `/ultrareview` pass, security review, dress rehearsal against the live infrastructure.
+- Saturday: final polish, timing tune on Peter.
 - Sunday: record 60-90 second demo video, submit blog + X thread + GitHub release by 8 PM EDT.
 
 ---
@@ -53,7 +59,7 @@ Built in public over a one-week sprint. Daily commits on `main`, daily updates f
 
 ### Install the CLI and point it at a real on-chain agent
 
-Once the public resolver is live (Thursday), this is the "hello world":
+The "hello world":
 
 ```bash
 npm install -g scut                  # or: pnpm add -g scut
@@ -63,19 +69,7 @@ scut init \
 scut resolve scut://8453/0x199b48e27a28881502b251b0068f388ce750feff/2
 ```
 
-`scut init` generates an Ed25519 + X25519 keypair in `~/.scut/keys.json` (mode 0600) and writes `~/.scut/config.json`. `scut resolve` queries the configured resolver and prints the SII document.
-
-Until `resolver.openscut.ai` is up, run a local resolver against Base mainnet:
-
-```bash
-SCUT_RESOLVER_REGISTRY_BACKEND=sii \
-SCUT_RESOLVER_CONTRACT_ADDRESS=0x199b48E27a28881502b251B0068F388Ce750feff \
-SCUT_RESOLVER_CHAIN_ID=8453 \
-  pnpm --filter scut-resolver run start &
-
-scut --resolver http://localhost:8444 \
-  resolve scut://8453/0x199b48e27a28881502b251b0068f388ce750feff/1
-```
+`scut init` generates an Ed25519 + X25519 keypair in `~/.scut/keys.json` (mode 0600) and writes `~/.scut/config.json`. `scut resolve` queries the configured resolver — `https://resolver.openscut.ai` by default — and prints the SII document.
 
 ### Run the terminal-of-blobs demo stack
 
@@ -93,13 +87,28 @@ pnpm --filter scut-monitor run dev -- --relay http://... --token ...
 
 Five agents exchange real encrypted envelopes over ~60 seconds. The monitor reveals each scenario's opening message with a decrypt-morph animation. Agents use fresh in-process keys by default.
 
-For the full on-chain version (resolver reads real SII documents from Base mainnet, agents sign as the actual on-chain identities — requires the operator's demo keys file):
+For on-chain against local in-process services (resolver reads real SII documents from Base mainnet, agents sign as real on-chain identities, but traffic stays local):
 
 ```bash
 pnpm --filter @openscut/agents run demo -- \
   --keys-in ~/.scut/demo-keys.json \
   --on-chain
 ```
+
+For the full public-production version (all traffic through the real relay and resolver):
+
+```bash
+# Fetch the production events token from the server
+EVENTS_TOKEN=$(ssh garfield@openscut \
+  'sudo cat /etc/scut/relay.env | grep SCUT_RELAY_EVENTS_TOKEN | cut -d= -f2')
+
+pnpm --filter @openscut/agents run demo -- \
+  --keys-in ~/.scut/demo-keys.json \
+  --events-token "$EVENTS_TOKEN" \
+  --on-chain --against-prod
+```
+
+Agents sign real envelopes, push them to `https://relay.openscut.ai`, which verifies each signature against the Ed25519 key published on-chain, stores them, and replays them on the SSE events stream.
 
 ---
 
@@ -223,8 +232,8 @@ GitHub Actions runs both the TS and contracts jobs on every push and PR.
 |---|---|---|
 | Reference contract | [`OpenSCUTRegistry`](https://basescan.org/address/0x199b48e27a28881502b251b0068f388ce750feff#code) on Base mainnet | **Live** at `0x199b48E27a28881502b251B0068F388Ce750feff`; tokens 1-5 are the demo agents |
 | SII documents | `https://openscut.ai/registry/{1..5}.json` | **Live** (five demo agents) |
-| Relay | `relay.openscut.ai` | Deploying Thursday |
-| Resolver | `resolver.openscut.ai` | Deploying Thursday |
+| Relay | `https://relay.openscut.ai` | **Live** (TLS via Let's Encrypt) |
+| Resolver | `https://resolver.openscut.ai` | **Live** (SII backend against Base mainnet) |
 | Docs site | [openscut.ai](https://openscut.ai) | Live |
 
 Anyone can run their own relay, resolver, or SII-compliant identity contract. The openscut.ai defaults exist for operators who don't want to host their own.
@@ -245,7 +254,7 @@ Anyone can run their own relay, resolver, or SII-compliant identity contract. Th
 - [x] Five demo agents minted with on-chain identities
 - [x] Addressing format cascade (envelope `from` / `to` use scut:// URIs)
 - [x] `scut` CLI (init, identity show/publish, send, recv, ack, relay add/list/remove, resolve, ping)
-- [ ] Public relay / resolver live at `relay.openscut.ai` / `resolver.openscut.ai`
+- [x] Public relay / resolver live at `relay.openscut.ai` / `resolver.openscut.ai`
 - [ ] 60-90 second demo video recorded
 
 ### v2 (post-launch)

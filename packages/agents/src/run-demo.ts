@@ -7,19 +7,20 @@
  *     [--keys-in <path>] \
  *     [--keys-out <path>] \
  *     [--script-out <path>] \
- *     [--on-chain]
- *
- * Starts relay + resolver in-process, assembles the five demo agents
- * (reusing keys from --keys-in when provided so they match on-chain
- * identities), writes a monitor keyring and a reveal script to disk,
- * and prints the URLs the operator should point `scut-monitor` at.
+ *     [--on-chain] [--against-prod]
  *
  * Modes:
- *   hermetic (default): generates fresh keys, registers agent
- *     documents in an in-process InMemoryRegistry. No mainnet RPC.
- *   --on-chain: uses a SIIRegistry pointing at Base mainnet so the
- *     resolver reads real on-chain SII documents. Combine with
- *     --keys-in to sign as the real on-chain agents.
+ *   hermetic (default): generates fresh keys, spawns in-process relay
+ *     and resolver, registers agent documents in InMemory. No network.
+ *   --on-chain: loads keys from --keys-in, spawns an in-process
+ *     resolver that reads real SII documents from Base mainnet, spawns
+ *     an in-process relay; agents sign as real on-chain identities but
+ *     traffic stays local. Useful for development without load on the
+ *     public relay.
+ *   --on-chain --against-prod: loads keys from --keys-in, points at
+ *     the production relay (relay.openscut.ai) and resolver
+ *     (resolver.openscut.ai). No in-process services; traffic flows
+ *     through the real public infrastructure.
  */
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
@@ -36,12 +37,16 @@ import {
 } from './orchestrator.js';
 import { DEMO_CHAIN_ID, DEMO_REGISTRY_ADDRESS, revealScriptFromScenarios, SCENARIOS } from './scenarios.js';
 
+const PROD_RELAY_URL = 'https://relay.openscut.ai';
+const PROD_RESOLVER_URL = 'https://resolver.openscut.ai';
+
 interface DemoCliArgs {
   eventsToken: string;
   keysIn: string | null;
   monitorKeysOut: string;
   scriptOut: string;
   onChain: boolean;
+  againstProd: boolean;
 }
 
 function expand(p: string): string {
@@ -72,6 +77,7 @@ function parseArgs(argv: readonly string[]): DemoCliArgs {
     monitorKeysOut: expand(get('--keys-out', resolvePath(defaultDir, 'monitor-keys.json'))),
     scriptOut: expand(get('--script-out', resolvePath(defaultDir, 'demo-reveal-script.json'))),
     onChain: has('--on-chain'),
+    againstProd: has('--against-prod'),
   };
 }
 
@@ -98,9 +104,31 @@ async function loadKeysIn(path: string): Promise<Map<ScutUri, AgentKeys>> {
   return map;
 }
 
+function modeLabel(onChain: boolean, againstProd: boolean): string {
+  if (againstProd) return 'on-chain, against-prod (Base mainnet + relay.openscut.ai)';
+  if (onChain) return 'on-chain, in-process (Base mainnet, local relay + resolver)';
+  return 'hermetic (InMemory, local relay + resolver)';
+}
+
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
-  console.error(`scut demo · core v${VERSION} · booting (${args.onChain ? 'on-chain' : 'hermetic'})...`);
+
+  if (args.againstProd && !args.onChain) {
+    throw new Error('--against-prod implies --on-chain; pass both or neither');
+  }
+  if (args.onChain && !args.keysIn) {
+    throw new Error(
+      '--on-chain requires --keys-in: signing as real on-chain agents needs their private keys',
+    );
+  }
+  if (args.againstProd && args.eventsToken === 'scut-demo-events-token-default') {
+    throw new Error(
+      '--against-prod requires --events-token: the production relay rejects the default token. ' +
+        'Fetch the production token via: ssh garfield@openscut sudo cat /etc/scut/relay.env | grep EVENTS',
+    );
+  }
+
+  console.error(`scut demo · core v${VERSION} · booting (${modeLabel(args.onChain, args.againstProd)})...`);
 
   const config: DemoConfig = { eventsToken: args.eventsToken };
 
@@ -109,12 +137,14 @@ async function main(): Promise<void> {
     config.keys = await loadKeysIn(expand(args.keysIn));
   }
 
-  if (args.onChain) {
-    if (!args.keysIn) {
-      throw new Error(
-        '--on-chain requires --keys-in: signing as real on-chain agents needs their private keys',
-      );
-    }
+  if (args.againstProd) {
+    // Use the real public relay + resolver. No in-process services spawn.
+    config.externalEndpoints = {
+      relayUrl: PROD_RELAY_URL,
+      resolverUrl: PROD_RESOLVER_URL,
+    };
+  } else if (args.onChain) {
+    // In-process resolver reads real on-chain SII documents from Base mainnet.
     config.registry = new SIIRegistry({
       chainId: DEMO_CHAIN_ID,
       contractAddress: DEMO_REGISTRY_ADDRESS as `0x${string}`,
@@ -143,10 +173,10 @@ async function main(): Promise<void> {
   console.error('');
   console.error(`relay           ${handles.relay.baseUrl}`);
   console.error(`resolver        ${handles.resolver.baseUrl}`);
-  console.error(`events token    ${handles.eventsToken}`);
+  console.error(`events token    ${args.againstProd ? '(production — fetch from server)' : handles.eventsToken}`);
   console.error(`monitor keys    ${args.monitorKeysOut}`);
   console.error(`reveal script   ${args.scriptOut}`);
-  console.error(`mode            ${args.onChain ? 'on-chain (Base mainnet)' : 'hermetic (InMemory)'}`);
+  console.error(`mode            ${modeLabel(args.onChain, args.againstProd)}`);
   console.error(`agents          ${handles.agentsByRef.size}`);
   console.error('');
   console.error('step 1 — in a second terminal, run:');
