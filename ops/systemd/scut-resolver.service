@@ -1,0 +1,36 @@
+[Unit]
+Description=SCUT resolver daemon
+Documentation=https://github.com/douglashardman/openscut/tree/main/packages/resolver
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=scut
+Group=scut
+WorkingDirectory=/opt/openscut/packages/resolver
+EnvironmentFile=/etc/scut/resolver.env
+ExecStart=/usr/bin/node /opt/openscut/packages/resolver/dist/index.js
+Restart=on-failure
+RestartSec=5s
+StandardOutput=journal
+StandardError=journal
+
+# Minimal privileges
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictRealtime=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+
+# No filesystem writes needed — resolver is stateless
+ReadWritePaths=
+
+[Install]
+WantedBy=multi-user.target

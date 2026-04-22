@@ -1,0 +1,37 @@
+[Unit]
+Description=SCUT relay daemon
+Documentation=https://github.com/douglashardman/openscut/tree/main/packages/relay
+After=network-online.target scut-resolver.service
+Wants=network-online.target
+Requires=scut-resolver.service
+
+[Service]
+Type=simple
+User=scut
+Group=scut
+WorkingDirectory=/opt/openscut/packages/relay
+EnvironmentFile=/etc/scut/relay.env
+ExecStart=/usr/bin/node /opt/openscut/packages/relay/dist/index.js
+Restart=on-failure
+RestartSec=5s
+StandardOutput=journal
+StandardError=journal
+
+# Minimal privileges
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictRealtime=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+
+# Relay needs to write to its SQLite DB
+ReadWritePaths=/var/lib/scut
+
+[Install]
+WantedBy=multi-user.target

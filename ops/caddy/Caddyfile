@@ -1,0 +1,46 @@
+# Caddy config for relay.openscut.ai and resolver.openscut.ai.
+# Installed by ops/scripts/install.sh at /etc/caddy/Caddyfile.
+# Caddy handles ACME HTTP-01 cert issuance and renewal via Let's Encrypt.
+
+{
+    email hello@openscut.ai
+}
+
+relay.openscut.ai {
+    # The SSE event stream needs proxy flushing per-chunk; other routes
+    # buffer normally.
+    @events path /scut/v1/events
+    reverse_proxy @events 127.0.0.1:8443 {
+        flush_interval -1
+        transport http {
+            read_timeout 24h
+            response_header_timeout 24h
+        }
+    }
+
+    reverse_proxy 127.0.0.1:8443
+
+    encode gzip zstd
+
+    log {
+        output file /var/log/caddy/relay.access.log {
+            roll_size 100mb
+            roll_keep 10
+        }
+        format json
+    }
+}
+
+resolver.openscut.ai {
+    reverse_proxy 127.0.0.1:8444
+
+    encode gzip zstd
+
+    log {
+        output file /var/log/caddy/resolver.access.log {
+            roll_size 100mb
+            roll_keep 10
+        }
+        format json
+    }
+}
