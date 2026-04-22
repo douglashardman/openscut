@@ -10,36 +10,96 @@ Relays route the envelope. Only the recipient can read the payload. No central s
 
 ## Status
 
-**v0.2.0 draft** — spec pivoted to the SCUT Identity Interface (SII), reference contract and resolver backend implemented, monitor + five scripted demo scenarios ready. Shipping v1 by Sunday, April 26, 2026, 8:00 PM EDT.
+**v0.2.0 draft** — spec, reference contract, resolver, relay, client library, monitor, CLI, and five-scenario demo orchestrator all implemented and passing end-to-end against Base mainnet. Remaining before Sunday April 26 ship: production hosting at `relay.openscut.ai` / `resolver.openscut.ai` and the demo recording.
 
-This repo is being built in public over a one-week sprint. Follow along at [@DougHardman](https://x.com/DougHardman) on X. Daily commits, daily updates.
+Built in public over a one-week sprint. Daily commits on `main`, daily updates from [@DougHardman](https://x.com/DougHardman).
 
 ### Day 1 (Tue April 21) — Foundation
 
 - pnpm monorepo scaffold with six packages under `packages/`
-- `@openscut/core` crypto: X25519 ECDH + HKDF-SHA256 + XChaCha20-Poly1305 + Ed25519 over RFC 8785 canonical JSON, with round-trip, tamper-detection, and cross-implementation stability tests
-- CI (GitHub Actions) for lint / build / typecheck / test on every push
+- `@openscut/core` crypto: X25519 ECDH + HKDF-SHA256 + XChaCha20-Poly1305 + Ed25519 over RFC 8785 canonical JSON. Round-trip, tamper-detection, and cross-implementation stability tests.
+- GitHub Actions CI for lint / build / typecheck / test on every push.
 
-### Day 2 (Tue April 21, same day — compressed) — Wire protocol, monitor, SII pivot
+### Day 2 (Tue April 21, compressed) — Wire protocol, monitor, SII pivot
 
-- `scut-relay` (Fastify + better-sqlite3): push / pickup / ack / capabilities / events (SSE) with SCUT-Signature auth, idempotent push with 409 on signature conflict, per-recipient nonce replay protection, TTL eviction
-- `scut-resolver` (Fastify): JSON-file and SII-backed registries, 5-min cache, `?ref=<scut_uri>` and legacy `?agent_id=` both accepted
-- `@openscut/core` `ScutClient`: send / receive / ack with relay priority fallback
-- `scut-monitor` (Ink): SSE subscriber, keyring, store, orchestrator (auto + scripted reveal modes), reveal animation with locked morph parameters (65/35 drift, 800 ms morphs, 2500 ms hold)
-- `@openscut/agents` demo stack: 5 scenarios (3 verbatim from CLAUDE.md, 2 approved afterward), agent orchestrator, one-command `run-demo` boot
-- **SII pivot** ([SPEC.md §4](spec/SPEC.md#4-scut-identity-interface-sii)): identity layer is now an interface any contract can implement, not a single privileged contract. EIP-165 id `0x6fe513d9`, cross-verified against OpenPub's SII adapter on Base mainnet.
-- `contracts/`: Foundry project with `ISCUTIdentity.sol` and `OpenSCUTRegistry.sol` — reference SII contract, permissionless mint, token ids start at 1. 19 forge tests.
-- CI gains a second job that installs Foundry and runs `forge test` on every push.
+- `scut-relay` (Fastify + better-sqlite3): push / pickup / ack / capabilities / events (SSE) with `SCUT-Signature` auth, idempotent push with 409 on signature conflict, per-recipient nonce replay protection, TTL eviction.
+- `scut-resolver` (Fastify): JSON-file and SII-backed registries, 5-minute cache, `?ref=<scut_uri>` lookups.
+- `@openscut/core` `ScutClient`: send / receive / ack with relay priority fallback.
+- `scut-monitor` (Ink): SSE subscriber, keyring, store, orchestrator (auto + scripted reveal modes), reveal animation with locked morph parameters.
+- `@openscut/agents` demo stack: 5 scenarios (3 verbatim from CLAUDE.md, 2 approved on Day 2), agent orchestrator, one-command `run-demo` boot.
+- **SII pivot** ([SPEC.md §4](spec/SPEC.md#4-scut-identity-interface-sii)): identity layer is now an interface any contract can implement. EIP-165 id `0x6fe513d9`. Cross-verified against OpenPub's SII adapter.
+- `contracts/`: Foundry project with `ISCUTIdentity.sol` and `OpenSCUTRegistry.sol`. 19 forge tests. CI gains a second job that runs `forge test`.
 
-**Current test totals:** 104 TypeScript tests (core 27 · monitor 25 · resolver 20 · relay 20 · agents 12) plus 19 Solidity tests.
+### Day 3 (Wed April 22) — On-chain, cascade, CLI
 
-### Day 3 onward — deployment, CLI, production
+- **Deployed `OpenSCUTRegistry` to Base mainnet** at [`0x199b48E27a28881502b251B0068F388Ce750feff`](https://basescan.org/address/0x199b48e27a28881502b251b0068f388ce750feff#code). Source verified on BaseScan.
+- **Minted five demo agents on-chain** at tokens 1-5, each with an SII document published at `https://openscut.ai/registry/{1..5}.json`.
+- **End-to-end verified on mainnet**: `SIIRegistry` reads the contract via Base RPC, fetches URIs, validates, resolves — full loop green.
+- **Addressing cascade**: envelope `from` / `to` carry full `scut://` URIs throughout `@openscut/core`, `ScutClient`, relay keystore, monitor keyring, agent orchestrator.
+- **`scut` CLI shipped** per [SPEC §10](spec/SPEC.md#10-cli-phase-2). `init`, `identity show/publish`, `send`, `recv`, `ack`, `relay add/list/remove`, `resolve`, `ping`. Published as `scut` on npm. Keyfiles enforced at mode 0600.
 
-- Deploy `OpenSCUTRegistry` to Base mainnet, mint five demo agents, host their SII documents at `openscut.ai/registry/<tokenId>.json`.
-- Cascade the addressing format change (envelope `from` / `to` fields now carry `scut://` URIs) through `@openscut/core`, `ScutClient`, relay keystore, monitor keyring, agent orchestrator.
-- Build the `scut` CLI per [SPEC.md §10](spec/SPEC.md).
-- Deploy `relay.openscut.ai` and `resolver.openscut.ai` to a DigitalOcean droplet (Docker + Caddy + Let's Encrypt + systemd + nightly SQLite backup to Cloudflare R2).
-- Record the demo on the Sony ZV-E10 on Sunday morning. Ship by 8 PM EDT.
+**Current test totals:** 125 TypeScript tests (core 27 · monitor 25 · resolver 20 · relay 20 · cli 19 · agents 14) plus 19 Solidity tests.
+
+### Days 4-6 — Production and demo
+
+- Thursday: `relay.openscut.ai` and `resolver.openscut.ai` go live on a DigitalOcean droplet (Docker + Caddy + Let's Encrypt + systemd + nightly SQLite backup to Cloudflare R2). After this, the in-process demo's `outboundRelayOverride` dev affordance comes off.
+- Friday: `/ultrareview` pass, security review, dress rehearsal.
+- Saturday: final polish, timing tune.
+- Sunday: record 60-90 second demo video, submit blog + X thread + GitHub release by 8 PM EDT.
+
+---
+
+## Try it
+
+### Install the CLI and point it at a real on-chain agent
+
+Once the public resolver is live (Thursday), this is the "hello world":
+
+```bash
+npm install -g scut                  # or: pnpm add -g scut
+scut init \
+  --contract 0x199b48E27a28881502b251B0068F388Ce750feff \
+  --token-id 1
+scut resolve scut://8453/0x199b48e27a28881502b251b0068f388ce750feff/2
+```
+
+`scut init` generates an Ed25519 + X25519 keypair in `~/.scut/keys.json` (mode 0600) and writes `~/.scut/config.json`. `scut resolve` queries the configured resolver and prints the SII document.
+
+Until `resolver.openscut.ai` is up, run a local resolver against Base mainnet:
+
+```bash
+SCUT_RESOLVER_REGISTRY_BACKEND=sii \
+SCUT_RESOLVER_CONTRACT_ADDRESS=0x199b48E27a28881502b251B0068F388Ce750feff \
+SCUT_RESOLVER_CHAIN_ID=8453 \
+  pnpm --filter scut-resolver run start &
+
+scut --resolver http://localhost:8444 \
+  resolve scut://8453/0x199b48e27a28881502b251b0068f388ce750feff/1
+```
+
+### Run the terminal-of-blobs demo stack
+
+```bash
+pnpm install
+
+# In terminal 1:
+pnpm --filter @openscut/agents run demo
+
+# In terminal 2 (command printed by the above):
+pnpm --filter scut-monitor run dev -- --relay http://... --token ...
+
+# Back in terminal 1, press enter to kick off the scripted scenarios.
+```
+
+Five agents exchange real encrypted envelopes over ~60 seconds. The monitor reveals each scenario's opening message with a decrypt-morph animation. Agents use fresh in-process keys by default.
+
+For the full on-chain version (resolver reads real SII documents from Base mainnet, agents sign as the actual on-chain identities — requires the operator's demo keys file):
+
+```bash
+pnpm --filter @openscut/agents run demo -- \
+  --keys-in ~/.scut/demo-keys.json \
+  --on-chain
+```
 
 ---
 
@@ -49,9 +109,9 @@ Two AI agents need to talk to each other. Maybe they're coordinating a meeting b
 
 Today, they have three bad options:
 
-1. Route through a central service that sees everything
-2. Share a database and hope access control holds
-3. Fall back to whatever the host platform offers, which rarely handles cryptographic identity
+1. Route through a central service that sees everything.
+2. Share a database and hope access control holds.
+3. Fall back to whatever the host platform offers, which rarely handles cryptographic identity.
 
 SCUT is the fourth option: a protocol where agents prove their identity via on-chain signatures, encrypt their payloads end-to-end, and route their messages through permissionless relays that can see envelope metadata but not content.
 
@@ -94,7 +154,7 @@ I've been building infrastructure for AI agents for the last six months. Every t
 
 The pattern I kept sketching was a mesh. Agents with cryptographic identities. Relay nodes passing encrypted envelopes. End-to-end encryption keyed to on-chain identity. No vendor in the middle.
 
-The closest analogy I had was SCUT from Dennis E. Taylor's Bobiverse. Subspace Communications Utility Transfer. So I stopped fighting it and made it the name.
+The closest analogy I had was SCUT from Dennis E. Taylor's Bobiverse series. Subspace Communications Utility Transfer. So I stopped fighting it and made it the name.
 
 Full thinking: [mrdoug.com](https://mrdoug.com)
 
@@ -125,54 +185,49 @@ Spec is licensed CC-BY-4.0. Reference implementations are MIT.
 
 ### Off-chain (all under `packages/`)
 
-- **`@openscut/core`** — Client library. Crypto, envelope construction, `ScutClient`.
-- **`scut`** — CLI. `scut init`, `scut send`, `scut recv`, etc. Per [SPEC §10](spec/SPEC.md#10-cli-phase-2).
-- **`scut-relay`** — Relay daemon (Fastify + SQLite). Signature-verified store-and-forward with an SSE event stream for observability.
-- **`scut-resolver`** — Resolver daemon. Reads from any SII-compliant contract on a configured chain, or from a JSON-file backend for local dev.
-- **`scut-monitor`** — TUI for live envelope observation. Connects to a relay's SSE stream, renders traffic, reveals decryptable envelopes with an animation.
-- **`@openscut/agents`** — Demo agents and orchestration. Five scripted scenarios for the demo recording.
+| Package | Role | README |
+|---|---|---|
+| **[`@openscut/core`](packages/core/README.md)** | Client library. Crypto, envelope construction, `ScutClient`. | [packages/core](packages/core/README.md) |
+| **[`scut`](packages/cli/README.md)** | CLI. `scut init`, `scut send`, `scut recv`, etc. Per [SPEC §10](spec/SPEC.md#10-cli-phase-2). | [packages/cli](packages/cli/README.md) |
+| **[`scut-relay`](packages/relay/README.md)** | Relay daemon (Fastify + SQLite). Signature-verified store-and-forward with an SSE event stream. | [packages/relay](packages/relay/README.md) |
+| **[`scut-resolver`](packages/resolver/README.md)** | Resolver daemon. Reads from any SII-compliant contract on a configured chain, or from a JSON-file backend for local dev. | [packages/resolver](packages/resolver/README.md) |
+| **[`scut-monitor`](packages/monitor/README.md)** | TUI for live envelope observation. SSE-connected, reveals decryptable envelopes with an animation. | [packages/monitor](packages/monitor/README.md) |
+| **`@openscut/agents`** (private) | Demo scenarios and orchestration. | [packages/agents](packages/agents/) |
 
-Stack: TypeScript, Node 20+, Fastify, libsodium, viem, ink. Solidity 0.8.24, Foundry.
+Stack: TypeScript 5, Node 20+, Fastify, libsodium, viem, ink. Solidity 0.8.24, Foundry.
 
 ---
 
-## Quickstart
+## Running the whole workspace
 
-### Run the demo stack locally
-
-```
+```bash
+# install once
 pnpm install
-pnpm --filter @openscut/agents run demo
-# In a second terminal, paste the printed scut-monitor command.
-# Come back to the first terminal and press enter.
-```
+cd contracts && forge install --no-git foundry-rs/forge-std openzeppelin/openzeppelin-contracts && cd ..
 
-Five scripted scenarios run over ~60 seconds, exchanging real encrypted envelopes through an in-process relay. The monitor in the second terminal reveals each scenario's opening message in turn with a decrypt-morph-reveal animation.
-
-### Run the tests
-
-```
-pnpm -r --filter './packages/*' run test      # 104 TypeScript tests
-cd contracts && forge test -vv                # 19 Solidity tests
-```
-
-### Build everything
-
-```
+# full workspace verification
+pnpm -r --filter './packages/*' run lint
 pnpm -r --filter './packages/*' run build
-cd contracts && forge build
+pnpm -r --filter './packages/*' run typecheck
+pnpm -r --filter './packages/*' run test       # 125 tests
+cd contracts && forge test -vv                  # 19 Solidity tests
 ```
+
+GitHub Actions runs both the TS and contracts jobs on every push and PR.
 
 ---
 
 ## Public Infrastructure
 
-- **Relay:** `relay.openscut.ai` (deploying Day 3-4)
-- **Resolver:** `resolver.openscut.ai` (deploying Day 3-4)
-- **Docs:** [openscut.ai](https://openscut.ai)
-- **Reference contract:** [`OpenSCUTRegistry`](https://basescan.org/address/0x199b48e27a28881502b251b0068f388ce750feff#code) on Base mainnet — deployed at `0x199b48E27a28881502b251B0068F388Ce750feff`. Five demo agents minted to tokens 1-5 with SII documents at `https://openscut.ai/registry/{1..5}.json`.
+| Service | Host | State |
+|---|---|---|
+| Reference contract | [`OpenSCUTRegistry`](https://basescan.org/address/0x199b48e27a28881502b251b0068f388ce750feff#code) on Base mainnet | **Live** at `0x199b48E27a28881502b251B0068F388Ce750feff`; tokens 1-5 are the demo agents |
+| SII documents | `https://openscut.ai/registry/{1..5}.json` | **Live** (five demo agents) |
+| Relay | `relay.openscut.ai` | Deploying Thursday |
+| Resolver | `resolver.openscut.ai` | Deploying Thursday |
+| Docs site | [openscut.ai](https://openscut.ai) | Live |
 
-All four go live during the v1 build week. Anyone can run their own relay, resolver, or SII-compliant identity contract. These are just defaults for people who don't want to host their own.
+Anyone can run their own relay, resolver, or SII-compliant identity contract. The openscut.ai defaults exist for operators who don't want to host their own.
 
 ---
 
@@ -188,7 +243,7 @@ All four go live during the v1 build week. Anyone can run their own relay, resol
 - [x] Five-scenario demo orchestrator
 - [x] Reference contract deployed to Base mainnet
 - [x] Five demo agents minted with on-chain identities
-- [x] Addressing format cascade (envelope `from` / `to` use scut:// URIs through core, client, relay, monitor, agents)
+- [x] Addressing format cascade (envelope `from` / `to` use scut:// URIs)
 - [x] `scut` CLI (init, identity show/publish, send, recv, ack, relay add/list/remove, resolve, ping)
 - [ ] Public relay / resolver live at `relay.openscut.ai` / `resolver.openscut.ai`
 - [ ] 60-90 second demo video recorded
