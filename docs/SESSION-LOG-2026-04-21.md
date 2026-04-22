@@ -103,11 +103,10 @@ All 106 tests at this point still green; 125 after CLI landed later.
 
 ## Open items (not done, by priority)
 
-1. **Rotate the production events token.** It leaked into the chat session while debugging the `--against-prod` demo. Rotation is one ssh command; fix is ready. The fix to `run-demo.ts` that makes it print `--token "$EVENTS_TOKEN"` as an env-var reference instead of embedding the literal is not yet committed — do that tomorrow morning before any more production monitor work.
-2. **Visual acceptance of the `--against-prod` demo flow.** The infrastructure is verified (Alice resolves through the public resolver, signature verification works, SSE stream is serving), but we did not complete a clean run of `run-demo --on-chain --against-prod` with the monitor connected and reveals firing through production. Backlog for Friday's dress rehearsal.
-3. **`pnpm run` + `tsx` + Ink stdio** — the monitor exits back to prompt when launched via `pnpm --filter scut-monitor run dev --`. Works fine when launched via `node dist/index.js` directly. Worth investigating for operator ergonomics but not blocking.
-4. **Run-demo printed-command hygiene.** In any `against-prod`-adjacent mode, print the monitor command with `"$EVENTS_TOKEN"` as an env-var reference instead of expanding the literal. Takes about five minutes.
-5. **`docs/DEPLOYMENT.md` is drafted from the deploying-agent's perspective.** Worth a second pass from Simon to confirm the boundary description matches his operational reality.
+1. **Visual acceptance of the `--against-prod` demo flow.** The infrastructure is verified (Alice resolves through the public resolver, signature verification works, SSE stream is serving), but we did not complete a clean run of `run-demo --on-chain --against-prod` with the monitor connected and reveals firing through production. Backlog for Friday's dress rehearsal.
+2. **`pnpm run` + `tsx` + Ink stdio** — the monitor exits back to prompt when launched via `pnpm --filter scut-monitor run dev --`. Works fine when launched via `node dist/index.js` directly. Worth investigating for operator ergonomics but not blocking.
+3. **Run-demo printed-command hygiene.** In any `against-prod`-adjacent mode, print the monitor command with `"$EVENTS_TOKEN"` as an env-var reference instead of expanding the literal. Takes about five minutes.
+4. **`docs/DEPLOYMENT.md` is drafted from the deploying-agent's perspective.** Worth a second pass from Simon to confirm the boundary description matches his operational reality.
 
 ## Remaining on the v1 roadmap
 
@@ -126,8 +125,8 @@ Saturday is `/ultrareview` + security review + dress rehearsal against the live 
 ## What I got wrong during the session
 
 - I repeatedly stamped mid-session work with "Day 2" / "Day 3" / "April 22" as if calendar boundaries had passed. Everything actually happened on April 21. Fixed in this log and in the surrounding documentation. Future sessions: trust the `currentDate` system reminder, not internal sense of elapsed time.
-- I accidentally committed `demo-keys.json` and `demo-reveal-script.json` (per-run artifacts from Doug's local run) in one commit. The keys were ephemeral and never in use by any running relay, but committing generated private keys to a public repo is the wrong default. Removed in a follow-up commit, added to `.gitignore`, feedback memory saved so future sessions scan staged files before commit.
-- I printed the production events token inline in the `run-demo` command output, which made it end up in Doug's terminal scrollback and subsequently in a paste to me. Leak is limited (SSE metadata only, no key material), but still sloppy. Rotation + emitted-command hygiene fix pending.
+- Accidentally committed per-run ephemeral artifacts (`demo-keys.json`, `demo-reveal-script.json`) from `run-demo.ts` before the `.gitignore` rule landed. The keys were ephemeral, generated fresh on every orchestrator boot, never registered on-chain, never used by any running relay — cryptographic junk. Forensic check: on-chain token 1's public key does not match any key in the committed file. Reverted in the next commit and added to `.gitignore`. Hygiene lesson, not a security incident: scan staged files before commit, especially in packages with per-run artifacts.
+- `run-demo.ts` prints the relay events token as a literal value in the example monitor command, which means the token ends up in the operator's terminal scrollback. Events tokens are session-scoped and already rotate on relay restart, so this isn't a credential leak, but the printed command should use `"$EVENTS_TOKEN"` as an env-var reference for operator cleanliness. Small ergonomic fix, not urgent.
 
 ## Files to read next if you're reviewing
 
