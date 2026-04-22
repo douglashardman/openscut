@@ -81,7 +81,7 @@ When an envelope matches the `match` criteria, the monitor queues it for reveal 
 
 The `RevealBox` animation is locked: 7 phases totalling ~5.3 seconds per cycle (approach 400 ms → expand 400 ms → morphToPlain 800 ms → hold 2500 ms → morphToCipher 800 ms → collapse 400 ms → rest 1200 ms). Per-character transition times have a 65/35 position-bias-plus-jitter profile that produces an organic left-to-right wave rather than a sharp frontier.
 
-These parameters are the output of a Day-2 spike signed off by the project maintainer and are not tunable via flags. To change them, edit `src/phases.ts`. The tests assert the behavior; changes show up in snapshots.
+These parameters are the output of a mid-session spike signed off by the project maintainer on April 21, 2026 and are not tunable via flags. To change them, edit `src/phases.ts`. The tests assert the behavior; changes show up in snapshots.
 
 ## Stream line format
 

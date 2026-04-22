@@ -8,9 +8,9 @@
 
 ---
 
-## Status (Day 2)
+## Status (locked April 21, 2026)
 
-The demo direction is **locked: terminal-of-blobs with reveal animation (Concept 2 below)**. Doug approved the RevealBox spike on Day 2 and greenlit building the full monitor around it. The animation itself is locked; the code paths around it can change.
+The demo direction is **locked: terminal-of-blobs with reveal animation (Concept 2 below)**. Doug approved the RevealBox spike mid-session on April 21 and greenlit building the full monitor around it. The animation itself is locked; the code paths around it can change.
 
 Remaining work: scenario recording pass Saturday, final timing tune on Peter, record Sunday morning.
 
@@ -18,7 +18,7 @@ Remaining work: scenario recording pass Saturday, final timing tune on Peter, re
 
 ## Purpose of This Document
 
-Captures all the demo thinking done on April 20, before the build started Tuesday. Sections 1-3 are preserved as the decision history. Decisions taken on Day 2 are reflected in the "Status" block above and the resolved open questions at the bottom.
+Captures all the demo thinking done on April 20, before the build started April 21. Sections 1-3 are preserved as the decision history. Decisions taken mid-session (April 21) are reflected in the "Status" block above and the resolved open questions at the bottom.
 
 ---
 
@@ -50,7 +50,7 @@ The demo must land that thesis in 60 seconds. Not "look at this security feature
 - Requires Slack integration build or high-fidelity mockup
 - Doesn't match what SCUT actually is
 
-**Status:** Not used. Dropped as a fallback after Day 2 spike approval. Slack surface will not be built this week.
+**Status:** Not used. Dropped as a fallback after the RevealBox spike was approved on April 21. Slack surface will not be built this week.
 
 ### Concept 2: Terminal-of-blobs with reveal animations (LOCKED)
 
@@ -69,7 +69,7 @@ The demo must land that thesis in 60 seconds. Not "look at this security feature
 - No human in frame (could feel sterile)
 - Production quality must be high to land
 
-**Status:** LOCKED on Day 2 (April 21). RevealBox spike approved by Doug; the morph texture, 65/35 drift, 2.5s hold, and 800ms morph durations are signed off. Full monitor built around the spike on Day 2. Saturday will verify the dim level on Peter and tune if needed; animation itself is locked.
+**Status:** LOCKED on April 21, 2026. RevealBox spike approved by Doug; the morph texture, 65/35 drift, 2.5s hold, and 800ms morph durations are signed off. Full monitor built around the spike the same afternoon. Saturday will verify the dim level on Peter and tune if needed; animation itself is locked.
 
 ### Concept 3: Hybrid
 
@@ -79,7 +79,7 @@ Slack visible on one half of the screen, live SCUT terminal on the other. Agents
 
 **Cons:** Busier frame, harder to focus attention, requires both Slack mockup AND terminal polish.
 
-**Status:** Not used. Dropped with Concept 1 after Day 2 spike approval.
+**Status:** Not used. Dropped with Concept 1 after the RevealBox spike was approved on April 21.
 
 ---
 
@@ -291,7 +291,7 @@ Smaller build than the Slack demo required. Sophistication concentrated in one p
 
 ---
 
-## Open Questions (RESOLVED Day 2)
+## Open Questions (RESOLVED April 21, 2026)
 
 1. **Option A/B/C production decision.** Resolved: Option B (real TUI tool that does the animation live). `scut-monitor` renders envelopes via SSE from the relay, decrypts with a keyring file, and drives a scripted reveal sequence. Recording is a single take off Peter.
 2. **Scenario swaps.** Resolved: three CLAUDE.md scenarios ship verbatim; two additional drafts (doctor appointment rescheduling, contractor scheduling) added in `packages/agents/src/scenarios.ts` for a total of 5 scenarios. Doug reviews the two drafts before the Saturday dress rehearsal.
@@ -341,10 +341,10 @@ Make the fallback decision Friday night at the latest. Do not let the demo conce
 ## Document Metadata
 
 - **Version:** 1.0 (LOCKED)
-- **Locked on:** April 21, 2026 (Day 2)
+- **Locked on:** April 21, 2026
 - **Next review:** Saturday April 25, 2026 (dress rehearsal on Peter, tune dim + timing)
 - **Author:** Doug Hardman + Guppi, April 20, 2026
-- **Lock record:** RevealBox spike approved; 5 scenarios queued; monitor built around the locked animation on Day 2
+- **Lock record:** RevealBox spike approved; 5 scenarios queued; monitor built around the locked animation the same afternoon
 - **Related documents:**
   - `spec/SPEC.md` (protocol specification)
   - `CLAUDE.md` (builder agent context)

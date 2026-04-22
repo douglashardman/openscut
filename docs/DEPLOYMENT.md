@@ -142,4 +142,4 @@ cd /opt/openscut && ops/scripts/update.sh
 
 ## Changelog
 
-- **2026-04-22 (evening)**: initial deployment of `relay.openscut.ai` and `resolver.openscut.ai` completed. SCUT v0.2.0. Let's Encrypt certs issued by Caddy via HTTP-01 (issuer `E8`, expires 2026-07-21). End-to-end verified: Alice (token 1) resolves through the public resolver, `SIIRegistry` reads Base mainnet at `https://mainnet.base.org` and returns the SII document from `https://openscut.ai/registry/1.json`.
+- **2026-04-21 (late evening)**: initial deployment of `relay.openscut.ai` and `resolver.openscut.ai` completed. SCUT v0.2.0. Let's Encrypt certs issued by Caddy via HTTP-01 (issuer `E8`, expires 2026-07-21). End-to-end verified: Alice (token 1) resolves through the public resolver, `SIIRegistry` reads Base mainnet at `https://mainnet.base.org` and returns the SII document from `https://openscut.ai/registry/1.json`.

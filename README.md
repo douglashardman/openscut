@@ -10,48 +10,30 @@ Relays route the envelope. Only the recipient can read the payload. No central s
 
 ## Status
 
-**v0.2.0 draft** — spec, reference contract, resolver, relay, client library, monitor, CLI, and five-scenario demo orchestrator all implemented and passing end-to-end against Base mainnet. Remaining before Sunday April 26 ship: production hosting at `relay.openscut.ai` / `resolver.openscut.ai` and the demo recording.
+**v0.2.0 draft** — spec, reference contract, resolver, relay, client library, monitor, CLI, five-scenario demo orchestrator, and production hosting at `relay.openscut.ai` / `resolver.openscut.ai` all shipped on April 21, 2026 across a single ~10-hour session. Full narrative in [`docs/SESSION-LOG-2026-04-21.md`](docs/SESSION-LOG-2026-04-21.md).
 
-Built in public over a one-week sprint. Daily commits on `main`, daily updates from [@DougHardman](https://x.com/DougHardman).
+Remaining before the Sunday April 26 ship: demo video recording. A few smaller follow-ups are tracked in the session log.
 
-### Day 1 (Tue April 21) — Foundation
+Built in public on `main`, daily updates from [@DougHardman](https://x.com/DougHardman).
 
-- pnpm monorepo scaffold with six packages under `packages/`
-- `@openscut/core` crypto: X25519 ECDH + HKDF-SHA256 + XChaCha20-Poly1305 + Ed25519 over RFC 8785 canonical JSON. Round-trip, tamper-detection, and cross-implementation stability tests.
-- GitHub Actions CI for lint / build / typecheck / test on every push.
+### What shipped (April 21, 2026 — 11 AM to ~9 PM CT)
 
-### Day 2 (Tue April 21, compressed) — Wire protocol, monitor, SII pivot
+1. **Foundation.** pnpm monorepo scaffold, six `packages/` stubs, `@openscut/core` crypto (X25519 ECDH + HKDF-SHA256 + XChaCha20-Poly1305 + Ed25519 over RFC 8785 canonical JSON), GitHub Actions CI.
+2. **Wire protocol.** `scut-relay` (Fastify + better-sqlite3: push / pickup / ack / capabilities / SSE events, SCUT-Signature auth, idempotent push with 409 on conflict, nonce replay protection, TTL eviction). `scut-resolver` (Fastify: JSON-file and SII backends, 5-minute cache). `ScutClient` (send / receive / ack with relay priority fallback).
+3. **Monitor.** `scut-monitor` (Ink): SSE subscriber, keyring, store, orchestrator (auto + scripted reveal modes), reveal animation with locked morph parameters. Five-scenario `@openscut/agents` demo stack.
+4. **SII pivot** mid-afternoon, triggered by an architecture doc from Guppi. Identity layer becomes a three-function interface any contract can implement (EIP-165 `0x6fe513d9`). [SPEC.md §4](spec/SPEC.md#4-scut-identity-interface-sii). `ISCUTIdentity.sol` + `OpenSCUTRegistry.sol` under [`contracts/`](contracts/), 19 forge tests, CI gains a contracts job.
+5. **On-chain.** Deployed `OpenSCUTRegistry` to Base mainnet at [`0x199b48E27a28881502b251B0068F388Ce750feff`](https://basescan.org/address/0x199b48e27a28881502b251b0068f388ce750feff#code) (source verified). Minted five demo agents to tokens 1-5 with SII documents at `https://openscut.ai/registry/{1..5}.json`. End-to-end mainnet resolution verified.
+6. **Addressing cascade.** Envelope `from` / `to` carry full `scut://` URIs through `@openscut/core`, `ScutClient`, relay keystore, monitor keyring, agent orchestrator.
+7. **CLI.** `scut init / identity show|publish / send / recv / ack / relay add|list|remove / resolve / ping` per [SPEC §10](spec/SPEC.md#10-cli-phase-2), published as `scut` on npm. Keyfiles enforced at mode 0600.
+8. **Production.** `relay.openscut.ai` and `resolver.openscut.ai` deployed on a DigitalOcean droplet (native Node + systemd + Caddy + Let's Encrypt, restic nightly backups to Cloudflare R2). Verified via public resolver: Alice (token 1) resolves through `https://resolver.openscut.ai`, `SIIRegistry` reads Base mainnet RPC, fetches her document from `openscut.ai`, returns.
 
-- `scut-relay` (Fastify + better-sqlite3): push / pickup / ack / capabilities / events (SSE) with `SCUT-Signature` auth, idempotent push with 409 on signature conflict, per-recipient nonce replay protection, TTL eviction.
-- `scut-resolver` (Fastify): JSON-file and SII-backed registries, 5-minute cache, `?ref=<scut_uri>` lookups.
-- `@openscut/core` `ScutClient`: send / receive / ack with relay priority fallback.
-- `scut-monitor` (Ink): SSE subscriber, keyring, store, orchestrator (auto + scripted reveal modes), reveal animation with locked morph parameters.
-- `@openscut/agents` demo stack: 5 scenarios (3 verbatim from CLAUDE.md, 2 approved on Day 2), agent orchestrator, one-command `run-demo` boot.
-- **SII pivot** ([SPEC.md §4](spec/SPEC.md#4-scut-identity-interface-sii)): identity layer is now an interface any contract can implement. EIP-165 id `0x6fe513d9`. Cross-verified against OpenPub's SII adapter.
-- `contracts/`: Foundry project with `ISCUTIdentity.sol` and `OpenSCUTRegistry.sol`. 19 forge tests. CI gains a second job that runs `forge test`.
+**Test totals at end of session:** 125 TypeScript tests (core 27 · monitor 25 · resolver 20 · relay 20 · cli 19 · agents 14) plus 19 Solidity tests. Total gas spent on Base: $0.04.
 
-### Day 3 (Wed April 22) — On-chain, cascade, CLI
+### What's left before the Sunday ship
 
-- **Deployed `OpenSCUTRegistry` to Base mainnet** at [`0x199b48E27a28881502b251B0068F388Ce750feff`](https://basescan.org/address/0x199b48e27a28881502b251b0068f388ce750feff#code). Source verified on BaseScan.
-- **Minted five demo agents on-chain** at tokens 1-5, each with an SII document published at `https://openscut.ai/registry/{1..5}.json`.
-- **End-to-end verified on mainnet**: `SIIRegistry` reads the contract via Base RPC, fetches URIs, validates, resolves — full loop green.
-- **Addressing cascade**: envelope `from` / `to` carry full `scut://` URIs throughout `@openscut/core`, `ScutClient`, relay keystore, monitor keyring, agent orchestrator.
-- **`scut` CLI shipped** per [SPEC §10](spec/SPEC.md#10-cli-phase-2). `init`, `identity show/publish`, `send`, `recv`, `ack`, `relay add/list/remove`, `resolve`, `ping`. Published as `scut` on npm. Keyfiles enforced at mode 0600.
-
-**Current test totals:** 125 TypeScript tests (core 27 · monitor 25 · resolver 20 · relay 20 · cli 19 · agents 14) plus 19 Solidity tests.
-
-### Day 4 (Wed April 22 evening) — Production live
-
-- **`relay.openscut.ai` and `resolver.openscut.ai` deployed and serving** on a DigitalOcean droplet running Ubuntu 24.04. Native Node + systemd + Caddy + Let's Encrypt. Nightly restic backups to Cloudflare R2.
-- Source-of-truth deploy config lives in [`ops/`](ops/README.md); production docs in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
-- The `outboundRelayOverride` dev affordance in the demo orchestrator is gone. Agents now follow the SII-advertised relay list through whatever resolver they're pointed at — in-process InMemory (hermetic tests), in-process SII-against-Base (`--on-chain`), or the real public endpoints (`--on-chain --against-prod`).
-- End-to-end verified from outside the droplet: Alice (token 1) resolves through `https://resolver.openscut.ai`, `SIIRegistry` reads Base mainnet RPC, fetches the URI, validates, returns.
-
-### Days 5-6 — Polish and demo
-
-- Friday: `/ultrareview` pass, security review, dress rehearsal against the live infrastructure.
-- Saturday: final polish, timing tune on Peter.
-- Sunday: record 60-90 second demo video, submit blog + X thread + GitHub release by 8 PM EDT.
+- `/ultrareview` pass, security review, dress rehearsal against production.
+- Final polish, timing tune on Peter.
+- Record the 60-90 second demo video, submit blog + X thread + GitHub release by 8 PM EDT Sunday.
 
 ---
 
