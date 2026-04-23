@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 240" role="img" aria-labelledby="demo-title demo-desc">
+  <title id="demo-title">SCUT envelope flow</title>
+  <desc id="demo-desc">A message travels from Alice's agent through a relay to Bob's agent. The payload is locked while the envelope is in transit and at the relay, and is unlocked only when it reaches Bob.</desc>
+
+  <defs>
+    <style>
+      .bg        { fill: #141414; }
+      .node      { fill: #1e1e1e; stroke: #27272a; stroke-width: 1.5; }
+      .node-accent { fill: #9e8cc2; }
+      .line      { stroke: #27272a; stroke-width: 1.5; stroke-dasharray: 4 4; fill: none; }
+      .label     { font-family: 'JetBrains Mono', monospace; font-size: 13px; fill: #d4d4d8; }
+      .label-dim { font-family: 'JetBrains Mono', monospace; font-size: 11px; fill: #9ca3af; }
+      .envelope  { fill: #1e1e1e; stroke: #9e8cc2; stroke-width: 1.5; }
+      .lock      { fill: #9e8cc2; }
+      .unlock    { fill: #b8a7da; opacity: 0; }
+
+      @keyframes travel {
+        0%    { transform: translateX(0); }
+        100%  { transform: translateX(520px); }
+      }
+      @keyframes payload-lock {
+        0%, 75%  { opacity: 1; }
+        85%, 100% { opacity: 0; }
+      }
+      @keyframes payload-unlock {
+        0%, 75%  { opacity: 0; }
+        85%, 100% { opacity: 1; }
+      }
+      @keyframes relay-pulse {
+        0%, 100% { opacity: 0.7; }
+        50%      { opacity: 1; }
+      }
+
+      #packet { animation: travel 8s cubic-bezier(0.45, 0, 0.55, 1) infinite; transform-origin: 0 0; }
+      #lock-icon { animation: payload-lock 8s linear infinite; }
+      #unlock-icon { animation: payload-unlock 8s linear infinite; }
+      #relay-ring { animation: relay-pulse 2s ease-in-out infinite; transform-origin: 400px 120px; }
+
+      @media (prefers-reduced-motion: reduce) {
+        #packet, #lock-icon, #unlock-icon, #relay-ring { animation: none; }
+        #packet { transform: translateX(180px); }
+      }
+    </style>
+  </defs>
+
+  <rect class="bg" width="800" height="240" rx="6"/>
+
+  <line class="line" x1="140" y1="120" x2="660" y2="120"/>
+
+  <g>
+    <circle class="node" cx="120" cy="120" r="34"/>
+    <text class="label" x="120" y="125" text-anchor="middle">A</text>
+    <text class="label-dim" x="120" y="180" text-anchor="middle">Alice's agent</text>
+  </g>
+
+  <g>
+    <circle id="relay-ring" class="node" cx="400" cy="120" r="42" fill="none" stroke="#9e8cc2" stroke-width="1"/>
+    <circle class="node" cx="400" cy="120" r="34"/>
+    <text class="label" x="400" y="117" text-anchor="middle">R</text>
+    <text class="label-dim" x="400" y="135" text-anchor="middle">relay</text>
+    <text class="label-dim" x="400" y="180" text-anchor="middle">routes envelope</text>
+  </g>
+
+  <g>
+    <circle class="node" cx="680" cy="120" r="34"/>
+    <text class="label" x="680" y="125" text-anchor="middle">B</text>
+    <text class="label-dim" x="680" y="180" text-anchor="middle">Bob's agent</text>
+  </g>
+
+  <g id="packet">
+    <g transform="translate(140, 104)">
+      <rect class="envelope" x="0" y="0" width="64" height="32" rx="3"/>
+      <line x1="0" y1="12" x2="64" y2="12" stroke="#9e8cc2" stroke-width="1" opacity="0.4"/>
+      <text class="label-dim" x="4" y="9" font-size="7">from: A</text>
+      <g id="lock-icon" transform="translate(32, 22)">
+        <rect x="-5" y="-4" width="10" height="7" rx="1" class="lock"/>
+        <path d="M -3 -4 Q -3 -8 0 -8 Q 3 -8 3 -4" fill="none" stroke="#9e8cc2" stroke-width="1"/>
+      </g>
+      <g id="unlock-icon" transform="translate(32, 22)">
+        <rect x="-5" y="-4" width="10" height="7" rx="1" class="unlock"/>
+        <path d="M -3 -4 Q -3 -8 0 -8 Q 3 -10 5 -7" fill="none" stroke="#b8a7da" stroke-width="1" opacity="0"/>
+        <text class="label-dim" x="0" y="2" text-anchor="middle" font-size="6" fill="#b8a7da">hi</text>
+      </g>
+    </g>
+  </g>
+
+</svg>

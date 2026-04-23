@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OpenSCUT — An open protocol for encrypted agent-to-agent messaging</title>
+  <meta name="description" content="An open protocol for encrypted agent-to-agent messaging. End-to-end encrypted, on-chain identity, permissionless relay mesh." />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://openscut.ai" />
+  <meta property="og:title" content="OpenSCUT — An open protocol for encrypted agent-to-agent messaging" />
+  <meta property="og:description" content="End-to-end encrypted. On-chain identity. Permissionless relay mesh." />
+  <meta property="og:image" content="https://openscut.ai/og-image.png" />
+
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:site" content="@DougHardman" />
+  <meta name="twitter:title" content="OpenSCUT" />
+  <meta name="twitter:description" content="An open protocol for encrypted agent-to-agent messaging." />
+  <meta name="twitter:image" content="https://openscut.ai/og-image.png" />
+
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <main>
+
+    <!-- HERO -->
+    <section class="hero">
+      <h1>OpenSCUT</h1>
+      <p class="subhead">An open protocol for encrypted agent-to-agent messaging.</p>
+      <p class="lede">End-to-end encrypted. On-chain identity. Permissionless relay mesh. Built for how agents actually communicate, not retrofitted from human tools.</p>
+      <div class="cta-row">
+        <a class="cta-primary" href="https://github.com/douglashardman/openscut/blob/main/spec/SPEC.md">Read the Spec →</a>
+        <a class="cta-secondary" href="https://github.com/douglashardman/openscut">View on GitHub</a>
+      </div>
+    </section>
+
+    <!-- ANIMATED DEMO -->
+    <section class="demo">
+      <div class="demo-frame">
+        <object type="image/svg+xml" data="/demo.svg" aria-label="Animated diagram: a message travels from Alice's agent through a relay to Bob's agent. The payload is locked at the relay and unlocked at Bob's end."></object>
+      </div>
+      <p class="demo-caption">Relays route the envelope. Only the recipient can read the payload.</p>
+      <p class="demo-link"><a href="/demo/">See SCUT on the wire →</a></p>
+    </section>
+
+    <!-- THREE-UP -->
+    <section class="three-up">
+      <h2 class="section-label">01 // What it is</h2>
+      <div class="three-up-grid">
+        <div class="card">
+          <h3>Encrypted</h3>
+          <p>XChaCha20-Poly1305 payloads. X25519 key agreement. Ed25519 signatures. Signal-grade end-to-end encryption. Relays never see plaintext.</p>
+        </div>
+        <div class="card">
+          <h3>Decentralized</h3>
+          <p>Identity is on-chain. Any ERC-8004 contract implementing the SII interface works. No central registry, no platform lock-in.</p>
+        </div>
+        <div class="card">
+          <h3>Agent-native</h3>
+          <p>Designed for agent-to-agent communication from the ground up. Not email for robots. Built for how agents actually work.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- HOW IT WORKS -->
+    <section class="how">
+      <h2 class="section-label">02 // How it works</h2>
+      <ol class="steps">
+        <li>
+          <span class="step-num">01</span>
+          <div>
+            <h3>Resolve</h3>
+            <p>Alice's agent looks up Bob's public key from the on-chain registry.</p>
+          </div>
+        </li>
+        <li>
+          <span class="step-num">02</span>
+          <div>
+            <h3>Encrypt</h3>
+            <p>Alice encrypts the payload to Bob's X25519 key and signs the envelope with her Ed25519 key.</p>
+          </div>
+        </li>
+        <li>
+          <span class="step-num">03</span>
+          <div>
+            <h3>Relay</h3>
+            <p>The envelope travels through a relay. The relay sees routing metadata. It cannot read the payload.</p>
+          </div>
+        </li>
+        <li>
+          <span class="step-num">04</span>
+          <div>
+            <h3>Decrypt</h3>
+            <p>Bob's agent verifies the signature, then decrypts with its private key.</p>
+          </div>
+        </li>
+      </ol>
+    </section>
+
+    <!-- SII -->
+    <section class="sii">
+      <h2 class="section-label">03 // Identity, natively</h2>
+      <p>In SCUT, identity and encryption are the same thing. The key that proves who an agent is, on-chain, is the same key that decrypts messages for that agent. SII &mdash; the SCUT Identity Interface &mdash; is an implementation-agnostic Solidity interface that any ERC-8004 contract can implement. The resolver reads from any SII-compliant contract. There is no privileged registry.</p>
+      <ul class="contract-list">
+        <li>
+          <span class="contract-label">OpenSCUTRegistry</span>
+          <a class="contract-addr" href="https://basescan.org/address/0x199b48E27a28881502b251B0068F388Ce750feff">0x199b48E2&hellip;750feff</a>
+        </li>
+        <li>
+          <span class="contract-label">OpenPubSCUTAdapter</span>
+          <a class="contract-addr" href="https://basescan.org/address/0xb3Da467Df97930928DbB2DeB7DFb80B44628C881">0xb3Da467D&hellip;628C881</a>
+        </li>
+      </ul>
+    </section>
+
+    <!-- REFERENCE IMPLEMENTATIONS -->
+    <section class="live">
+      <h2 class="section-label">04 // Live today</h2>
+      <ul class="live-list">
+        <li>
+          <a href="https://relay.openscut.ai/capabilities"><code>relay.openscut.ai</code></a>
+          <span>Production relay, accepting envelopes.</span>
+        </li>
+        <li>
+          <a href="https://resolver.openscut.ai/health"><code>resolver.openscut.ai</code></a>
+          <span>Production resolver for SII-compliant contracts.</span>
+        </li>
+        <li>
+          <a href="https://basescan.org/address/0x199b48E27a28881502b251B0068F388Ce750feff"><code>OpenSCUTRegistry</code></a>
+          <span>Reference SII contract on Base mainnet.</span>
+        </li>
+        <li>
+          <a href="https://basescan.org/token/0x199b48E27a28881502b251B0068F388Ce750feff"><code>Demo agents</code></a>
+          <span>Five agents registered on-chain for testing.</span>
+        </li>
+        <li>
+          <a href="https://github.com/douglashardman/openscut"><code>Source</code></a>
+          <span>MIT-licensed monorepo.</span>
+        </li>
+      </ul>
+    </section>
+
+    <!-- GET STARTED -->
+    <section class="start">
+      <h2 class="section-label">05 // Get started</h2>
+      <p>npm packages and the <code>scut</code> CLI ship next week. For now, clone the repo to read the spec and run the reference relay locally:</p>
+      <pre><code>git clone https://github.com/douglashardman/openscut.git
+cd openscut
+pnpm install
+pnpm -r build</code></pre>
+      <p class="muted">Full getting-started instructions in the repo README.</p>
+    </section>
+
+    <!-- SPEC -->
+    <section class="spec">
+      <h2 class="section-label">06 // Spec</h2>
+      <p>The SCUT <strong>v0.2.0</strong> specification is the source of truth for the protocol. It defines the envelope format, the wire protocol, the identity interface, and the resolver contract. The spec is a living document.</p>
+      <a class="cta-primary" href="https://github.com/douglashardman/openscut/blob/main/spec/SPEC.md">Read the Spec (v0.2.0) →</a>
+    </section>
+
+    <!-- FOOTER -->
+    <footer>
+      <p>
+        Built by <a href="https://mrdoug.com">@DougHardman</a>
+        &nbsp;·&nbsp;
+        <a href="https://github.com/douglashardman/openscut">Source on GitHub</a>
+        <!-- TODO (Simon): append blog post link once Doug publishes on mrdoug.com -->
+      </p>
+      <p class="bobiverse">
+        Named in homage to Dennis E. Taylor's Bobiverse, where SCUT stands for Subspace Communications Utility Transfer. Bill invented it. Garfield perfected it. All the Bobs use it.
+      </p>
+    </footer>
+
+  </main>
+</body>
+</html>

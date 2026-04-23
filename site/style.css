@@ -1,0 +1,277 @@
+:root {
+  --bg-0: #0a0a0a;
+  --bg-1: #141414;
+  --bg-2: #1e1e1e;
+  --border: #27272a;
+  --text-0: #f5f5f5;
+  --text-1: #d4d4d8;
+  --text-2: #9ca3af;
+  --text-3: #52525b;
+  --accent: #9e8cc2;
+  --accent-dim: #9e8cc233;
+  --accent-bright: #b8a7da;
+  --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --sans: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  background: var(--bg-0);
+  color: var(--text-1);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+main {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 5rem 1.5rem 3rem;
+}
+
+section { padding: 4rem 0; }
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+}
+a:hover {
+  color: var(--accent-bright);
+  border-bottom-color: var(--accent-bright);
+}
+
+code, pre, .mono, .section-label, .step-num, .contract-addr, .contract-label {
+  font-family: var(--mono);
+}
+
+.section-label {
+  font-family: var(--mono);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-2);
+  letter-spacing: 0.02em;
+  margin-bottom: 2rem;
+  text-transform: none;
+}
+
+/* -------- HERO -------- */
+.hero { padding-top: 1rem; padding-bottom: 6rem; }
+.hero h1 {
+  font-family: var(--mono);
+  font-size: clamp(2.5rem, 7vw, 4.5rem);
+  font-weight: 700;
+  color: var(--text-0);
+  letter-spacing: -0.03em;
+  margin-bottom: 1rem;
+}
+.hero .subhead {
+  font-size: clamp(1.1rem, 2.5vw, 1.5rem);
+  color: var(--text-1);
+  font-weight: 500;
+  margin-bottom: 1.5rem;
+  max-width: 40ch;
+}
+.hero .lede {
+  font-size: 1.0625rem;
+  color: var(--text-2);
+  max-width: 56ch;
+  margin-bottom: 2.5rem;
+}
+
+.cta-row { display: flex; gap: 1rem; flex-wrap: wrap; }
+.cta-primary, .cta-secondary {
+  display: inline-block;
+  padding: 0.75rem 1.25rem;
+  font-family: var(--mono);
+  font-size: 0.875rem;
+  font-weight: 500;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  transition: all 0.15s;
+}
+.cta-primary {
+  background: var(--accent);
+  color: var(--bg-0);
+  border-color: var(--accent);
+}
+.cta-primary:hover {
+  background: var(--accent-bright);
+  border-color: var(--accent-bright);
+  color: var(--bg-0);
+}
+.cta-secondary {
+  background: transparent;
+  color: var(--text-1);
+  border-color: var(--border);
+}
+.cta-secondary:hover {
+  background: var(--bg-1);
+  color: var(--text-0);
+  border-color: var(--accent);
+}
+
+/* -------- DEMO -------- */
+.demo { padding: 2rem 0 4rem; }
+.demo-frame {
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 2rem 1rem;
+  display: flex;
+  justify-content: center;
+}
+.demo-frame object { width: 100%; max-width: 800px; height: auto; }
+.demo-caption {
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 0.8125rem;
+  color: var(--text-2);
+  margin-top: 1.25rem;
+}
+.demo-link {
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 0.875rem;
+  margin-top: 0.75rem;
+}
+
+/* -------- THREE-UP -------- */
+.three-up-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.25rem;
+}
+.card {
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 1.5rem;
+}
+.card h3 {
+  font-family: var(--mono);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 0.625rem;
+  letter-spacing: 0.01em;
+}
+.card p { color: var(--text-2); font-size: 0.9375rem; }
+
+/* -------- HOW IT WORKS -------- */
+.steps { list-style: none; display: flex; flex-direction: column; gap: 1rem; }
+.steps li {
+  display: grid;
+  grid-template-columns: 3.5rem 1fr;
+  gap: 1.25rem;
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 1.25rem 1.5rem;
+  align-items: center;
+}
+.step-num {
+  font-family: var(--mono);
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 0.02em;
+}
+.steps h3 {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  color: var(--text-0);
+  margin-bottom: 0.25rem;
+}
+.steps p { color: var(--text-2); font-size: 0.9375rem; }
+
+/* -------- SII -------- */
+.sii p {
+  max-width: 70ch;
+  color: var(--text-1);
+  margin-bottom: 1.5rem;
+}
+.contract-list { list-style: none; display: flex; flex-direction: column; gap: 0.625rem; }
+.contract-list li {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: baseline;
+  font-size: 0.875rem;
+}
+.contract-label {
+  color: var(--text-2);
+  min-width: 14rem;
+}
+.contract-addr {
+  color: var(--accent);
+  word-break: break-all;
+}
+
+/* -------- LIVE TODAY -------- */
+.live-list { list-style: none; display: flex; flex-direction: column; gap: 0.75rem; }
+.live-list li {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: baseline;
+  font-size: 0.9375rem;
+}
+.live-list li a {
+  min-width: 14rem;
+  display: inline-block;
+}
+.live-list li code {
+  background: transparent;
+  color: var(--accent);
+  font-size: 0.875rem;
+}
+.live-list li span { color: var(--text-2); }
+
+/* -------- GET STARTED -------- */
+.start pre {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 1.25rem 1.5rem;
+  overflow-x: auto;
+  margin: 1.25rem 0;
+}
+.start pre code {
+  font-size: 0.875rem;
+  color: var(--text-1);
+  line-height: 1.7;
+}
+.start .muted { color: var(--text-3); font-size: 0.875rem; }
+
+/* -------- SPEC -------- */
+.spec p { color: var(--text-1); max-width: 66ch; margin-bottom: 1.5rem; }
+.spec strong { color: var(--text-0); font-weight: 600; }
+
+/* -------- FOOTER -------- */
+footer {
+  margin-top: 4rem;
+  padding: 2.5rem 0 3rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.8125rem;
+  color: var(--text-3);
+}
+footer p { margin-bottom: 0.75rem; }
+footer a { color: var(--text-2); }
+footer a:hover { color: var(--accent); border-bottom-color: var(--accent); }
+footer .bobiverse { font-style: italic; color: var(--text-3); max-width: 70ch; line-height: 1.6; }
+
+/* -------- RESPONSIVE -------- */
+@media (max-width: 640px) {
+  main { padding: 3rem 1.25rem 2rem; }
+  section { padding: 3rem 0; }
+  .steps li { grid-template-columns: 2.5rem 1fr; gap: 0.75rem; padding: 1rem 1.25rem; }
+  .contract-list li { flex-direction: column; gap: 0.25rem; }
+  .contract-label { min-width: 0; }
+  .live-list li { flex-direction: column; gap: 0.25rem; }
+  .live-list li a { min-width: 0; }
+}
