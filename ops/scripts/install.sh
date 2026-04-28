@@ -89,18 +89,22 @@ log 'building repo (pnpm install + package builds)'
 cd "$SCUT_REPO_DIR"
 # The scut user owns /var/lib/scut but the repo checkout is owned by the
 # human operator who cloned it. pnpm runs as the operator so install can
-# write node_modules; the scut service user reads the built files.
+# write node_modules; the scut service user reads the built files via the
+# default 0644 perms (no chown needed).
+#
+# Reclaim ownership of any dist directories that earlier runs of an older
+# install.sh left scut-owned, so pnpm install's bin-shim chmod doesn't
+# EPERM. Suppress errors when the dirs do not yet exist.
+sudo chown -R "$(id -u):$(id -g)" \
+    packages/relay/dist \
+    packages/resolver/dist \
+    packages/register/dist 2>/dev/null || true
+
 pnpm install --frozen-lockfile
 pnpm --filter @openscut/core run build
 pnpm --filter scut-resolver run build
 pnpm --filter scut-relay run build
 pnpm --filter scut-register run build
-
-# Make the compiled entries executable for the service user
-sudo chown -R scut:scut \
-    "$SCUT_REPO_DIR/packages/relay/dist" \
-    "$SCUT_REPO_DIR/packages/resolver/dist" \
-    "$SCUT_REPO_DIR/packages/register/dist"
 
 # ---------- env files ----------
 
@@ -139,17 +143,56 @@ sleep 2
 sudo systemctl restart scut-relay.service
 # Only start scut-register if the wallet key has been filled in...
 # starting it before that just produces an immediate restart loop.
-if grep -q "^SCUT_REGISTER_WALLET_KEY=0x__FILL_THIS_IN_BY_HAND__$" "$SCUT_ETC/register.env"; then
-    log 'skipping scut-register restart: wallet key not yet configured'
-else
+# /etc/scut/register.env is 0640 root:scut and the operator running this
+# script is not in the scut group, so the grep needs sudo. Default to
+# "not configured" if we cannot prove otherwise so we never start a
+# service against the placeholder.
+register_key_configured=false
+if sudo test -f "$SCUT_ETC/register.env"; then
+    if ! sudo grep -q "^SCUT_REGISTER_WALLET_KEY=0x__FILL_THIS_IN_BY_HAND__$" "$SCUT_ETC/register.env"; then
+        register_key_configured=true
+    fi
+fi
+if $register_key_configured; then
     sudo systemctl restart scut-register.service
+else
+    log 'skipping scut-register start: wallet key not yet configured'
 fi
 
 # ---------- caddy ----------
 
-log 'installing Caddyfile and reloading caddy'
-sudo install -m 644 "$SCUT_REPO_DIR/ops/caddy/Caddyfile" /etc/caddy/Caddyfile
-sudo systemctl reload caddy
+# The repo owns /etc/caddy/conf.d/openscut-services.caddy ONLY. The
+# main /etc/caddy/Caddyfile belongs to the droplet operator and is
+# expected to look like:
+#
+#     {
+#         email hello@openscut.ai
+#     }
+#     import /etc/caddy/conf.d/*.caddy
+#
+# (plus any operator-owned vhosts). install.sh does not write the main
+# Caddyfile; doing so silently dropped the apex site + .com redirects
+# in an earlier release.
+log 'installing /etc/caddy/conf.d/openscut-services.caddy'
+sudo mkdir -p /etc/caddy/conf.d
+sudo install -m 644 "$SCUT_REPO_DIR/ops/caddy/openscut-services.caddy" /etc/caddy/conf.d/openscut-services.caddy
+
+if ! sudo grep -q "import /etc/caddy/conf.d" /etc/caddy/Caddyfile 2>/dev/null; then
+    echo
+    echo "  ACTION REQUIRED: /etc/caddy/Caddyfile does not import"
+    echo "  /etc/caddy/conf.d/*.caddy. Add this line to /etc/caddy/Caddyfile"
+    echo "  (after any global { ... } block) before reloading caddy:"
+    echo
+    echo "      import /etc/caddy/conf.d/*.caddy"
+    echo
+fi
+
+# Use the admin API ('caddy reload') instead of 'systemctl reload caddy'.
+# The systemd reload-notify protocol on the unit has been observed to
+# hang on this droplet; the admin API reload is the operator-supported
+# path per Simon as of 2026-04-28.
+log 'reloading caddy via admin API'
+sudo caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
 
 # ---------- verify ----------
 

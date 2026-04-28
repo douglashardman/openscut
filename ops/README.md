@@ -21,9 +21,11 @@ ops/
 
 ## Boundaries
 
-SCUT owns: application services, reverse proxy config, service users, env files, systemd units.
+SCUT owns: application services (relay, resolver, register), the Caddy fragment for these services at `/etc/caddy/conf.d/openscut-services.caddy`, the service `scut` user, env files at `/etc/scut/`, systemd units for the three services.
 
-SCUT does **not** own: the droplet, DNS records, UFW rules, backup configuration. Those live with the infra operator (Simon).
+SCUT does **not** own: the droplet itself, DNS records, UFW rules, backup configuration, the main `/etc/caddy/Caddyfile`, the apex `openscut.ai` static site, or the `.com` redirect vhosts. Those live with the infra operator (Simon).
+
+The Caddy boundary is enforced by file path: `update.sh` writes only to `/etc/caddy/conf.d/openscut-services.caddy`. The operator's main Caddyfile is expected to include `import /etc/caddy/conf.d/*.caddy` so the fragment is picked up. A reload uses Caddy's admin API (`caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile`), not `systemctl reload caddy`.
 
 ## Initial install
 
@@ -37,7 +39,18 @@ cd /opt/openscut
 ops/scripts/install.sh
 ```
 
-The script is idempotent: rerunning it won't regenerate the events token, overwrite existing env files, or clobber the SQLite DB. It will update systemd units, the Caddyfile, and the package builds to match the checked-out commit.
+The script is idempotent: rerunning it won't regenerate the events token, overwrite existing env files, or clobber the SQLite DB. It updates systemd units, the SCUT Caddy fragment at `/etc/caddy/conf.d/openscut-services.caddy`, and the package builds to match the checked-out commit. It does not write `/etc/caddy/Caddyfile`.
+
+On first install, the operator must ensure `/etc/caddy/Caddyfile` includes:
+
+```
+{
+    email hello@openscut.ai
+}
+import /etc/caddy/conf.d/*.caddy
+```
+
+(plus any operator-owned vhosts). `install.sh` warns if the import directive is missing but does not auto-add it.
 
 ## Applying a new release
 
@@ -61,7 +74,8 @@ This pulls `origin/main`, rebuilds the four relevant packages (core → resolver
 | `/etc/systemd/system/scut-relay.service` | Systemd unit. Symlinked from `ops/systemd/`. |
 | `/etc/systemd/system/scut-resolver.service` | Systemd unit. |
 | `/etc/systemd/system/scut-register.service` | Systemd unit. |
-| `/etc/caddy/Caddyfile` | Caddy reverse proxy config. |
+| `/etc/caddy/conf.d/openscut-services.caddy` | Caddy fragment for relay + resolver + register vhosts. Owned by SCUT, dropped in by `update.sh`. |
+| `/etc/caddy/Caddyfile` | Main Caddy config. **Owned by the droplet operator (Simon), not by this repo.** Must contain `import /etc/caddy/conf.d/*.caddy` plus any operator-owned vhosts (apex site, redirects). |
 | `/var/log/caddy/` | Caddy access logs, rolled at 100MB, last 10 kept. |
 
 ## What's running
@@ -132,10 +146,12 @@ pnpm install --frozen-lockfile
 pnpm --filter @openscut/core run build
 pnpm --filter scut-resolver run build
 pnpm --filter scut-relay run build
-sudo chown -R scut:scut packages/relay/dist packages/resolver/dist
+pnpm --filter scut-register run build
 sudo systemctl restart scut-resolver.service
 sleep 2
 sudo systemctl restart scut-relay.service
+sleep 2
+sudo systemctl restart scut-register.service
 ```
 
 The relay's SQLite schema is append-only and v1-frozen; downgrading the binary against a newer DB is safe.

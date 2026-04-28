@@ -1,10 +1,19 @@
-# Caddy config for relay, resolver, and register on openscut.ai.
-# Installed by ops/scripts/install.sh at /etc/caddy/Caddyfile.
+# Caddy fragment for the SCUT services on openscut.ai.
+# Installed by ops/scripts/install.sh at /etc/caddy/conf.d/openscut-services.caddy.
 # Caddy handles ACME HTTP-01 cert issuance and renewal via Let's Encrypt.
-
-{
-    email hello@openscut.ai
-}
+#
+# This file is the source of truth ONLY for the relay/resolver/register
+# vhosts. The main /etc/caddy/Caddyfile is owned by the droplet operator
+# (Simon) and must contain at least:
+#
+#   {
+#       email hello@openscut.ai
+#   }
+#   import /etc/caddy/conf.d/*.caddy
+#
+# ... plus any other vhosts the operator runs (apex site, redirects, etc.).
+# Do not add a global options block here; the operator's Caddyfile owns
+# global options.
 
 relay.openscut.ai {
     # The SSE event stream needs proxy flushing per-chunk; other routes
