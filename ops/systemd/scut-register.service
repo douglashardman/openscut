@@ -1,0 +1,36 @@
+[Unit]
+Description=SCUT registration service
+Documentation=https://github.com/douglashardman/openscut/tree/main/packages/register
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=scut
+Group=scut
+WorkingDirectory=/opt/openscut/packages/register
+EnvironmentFile=/etc/scut/register.env
+ExecStart=/usr/bin/node /opt/openscut/packages/register/dist/index.js
+Restart=on-failure
+RestartSec=5s
+StandardOutput=journal
+StandardError=journal
+
+# Minimal privileges
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictRealtime=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+
+# Register service writes the SQLite DB tracking custodial tokens
+ReadWritePaths=/var/lib/scut
+
+[Install]
+WantedBy=multi-user.target

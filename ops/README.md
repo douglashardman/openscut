@@ -46,7 +46,7 @@ cd /opt/openscut
 ops/scripts/update.sh
 ```
 
-This pulls `origin/main`, rebuilds the three relevant packages (core → resolver → relay), and restarts the services in dependency order.
+This pulls `origin/main`, rebuilds the four relevant packages (core → resolver → relay → register), and restarts the services in dependency order.
 
 ## What's where on the droplet
 
@@ -55,9 +55,12 @@ This pulls `origin/main`, rebuilds the three relevant packages (core → resolve
 | `/opt/openscut/` | Repo checkout. Updated via `update.sh`. |
 | `/etc/scut/relay.env` | Relay env, root:scut, 0640. Contains the events token. |
 | `/etc/scut/resolver.env` | Resolver env, root:scut, 0640. |
+| `/etc/scut/register.env` | Register env, root:scut, 0640. Contains the service wallet private key. |
 | `/var/lib/scut/relay.db` | Relay SQLite store. Backed up nightly by Simon to Cloudflare R2. |
+| `/var/lib/scut/register.db` | Register SQLite store (tokenId → custodial pubkey mapping). Backed up nightly by Simon to Cloudflare R2. |
 | `/etc/systemd/system/scut-relay.service` | Systemd unit. Symlinked from `ops/systemd/`. |
 | `/etc/systemd/system/scut-resolver.service` | Systemd unit. |
+| `/etc/systemd/system/scut-register.service` | Systemd unit. |
 | `/etc/caddy/Caddyfile` | Caddy reverse proxy config. |
 | `/var/log/caddy/` | Caddy access logs, rolled at 100MB, last 10 kept. |
 
@@ -66,7 +69,8 @@ This pulls `origin/main`, rebuilds the three relevant packages (core → resolve
 ```
 scut-resolver.service   listens on 127.0.0.1:8444
 scut-relay.service      listens on 127.0.0.1:8443, depends on resolver
-caddy.service           terminates TLS on 443, proxies both
+scut-register.service   listens on 127.0.0.1:8445, mints SII identities on-chain
+caddy.service           terminates TLS on 443, proxies all three
 ```
 
 No service is reachable directly from the public internet — Caddy is the only process on 80/443.
@@ -91,14 +95,21 @@ sudo systemctl restart scut-relay.service
 # local health checks
 curl http://127.0.0.1:8444/health
 curl http://127.0.0.1:8443/health
+curl http://127.0.0.1:8445/scut/v1/health
 
 # public endpoint smoke test
 curl https://resolver.openscut.ai/scut/v1/resolve?ref=scut%3A%2F%2F8453%2F0x199b48e27a28881502b251b0068f388ce750feff%2F1
+curl https://register.openscut.ai/scut/v1/health
 
 # verify TLS certs (issued by Let's Encrypt)
 curl -sSf -I https://relay.openscut.ai/health
 curl -sSf -I https://resolver.openscut.ai/scut/v1/capabilities
+curl -sSf -I https://register.openscut.ai/scut/v1/health
 ```
+
+## DNS prerequisites
+
+`register.openscut.ai` requires an A record pointing at the same droplet IP as `relay.openscut.ai` and `resolver.openscut.ai`. Caddy will issue a TLS cert via Let's Encrypt automatically once DNS resolves.
 
 ## Upgrading Node or pnpm
 

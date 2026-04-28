@@ -94,9 +94,13 @@ pnpm install --frozen-lockfile
 pnpm --filter @openscut/core run build
 pnpm --filter scut-resolver run build
 pnpm --filter scut-relay run build
+pnpm --filter scut-register run build
 
 # Make the compiled entries executable for the service user
-sudo chown -R scut:scut "$SCUT_REPO_DIR/packages/relay/dist" "$SCUT_REPO_DIR/packages/resolver/dist"
+sudo chown -R scut:scut \
+    "$SCUT_REPO_DIR/packages/relay/dist" \
+    "$SCUT_REPO_DIR/packages/resolver/dist" \
+    "$SCUT_REPO_DIR/packages/register/dist"
 
 # ---------- env files ----------
 
@@ -112,16 +116,34 @@ if [[ ! -f "$SCUT_ETC/relay.env" ]]; then
     sudo sed -i "s|^SCUT_RELAY_EVENTS_TOKEN=.*|SCUT_RELAY_EVENTS_TOKEN=${EVENTS_TOKEN}|" "$SCUT_ETC/relay.env"
 fi
 
+if [[ ! -f "$SCUT_ETC/register.env" ]]; then
+    log 'writing /etc/scut/register.env (wallet key MUST be filled in manually)'
+    sudo install -m 640 -o root -g scut "$SCUT_REPO_DIR/ops/env/register.env.example" "$SCUT_ETC/register.env"
+    echo
+    echo "  ACTION REQUIRED: edit $SCUT_ETC/register.env and replace"
+    echo "  SCUT_REGISTER_WALLET_KEY=0x__FILL_THIS_IN_BY_HAND__ with the real key"
+    echo "  before starting scut-register.service."
+    echo
+fi
+
 # ---------- systemd units ----------
 
 log 'installing systemd units'
 sudo install -m 644 "$SCUT_REPO_DIR/ops/systemd/scut-resolver.service" /etc/systemd/system/
 sudo install -m 644 "$SCUT_REPO_DIR/ops/systemd/scut-relay.service" /etc/systemd/system/
+sudo install -m 644 "$SCUT_REPO_DIR/ops/systemd/scut-register.service" /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable scut-resolver.service scut-relay.service
+sudo systemctl enable scut-resolver.service scut-relay.service scut-register.service
 sudo systemctl restart scut-resolver.service
 sleep 2
 sudo systemctl restart scut-relay.service
+# Only start scut-register if the wallet key has been filled in...
+# starting it before that just produces an immediate restart loop.
+if grep -q "^SCUT_REGISTER_WALLET_KEY=0x__FILL_THIS_IN_BY_HAND__$" "$SCUT_ETC/register.env"; then
+    log 'skipping scut-register restart: wallet key not yet configured'
+else
+    sudo systemctl restart scut-register.service
+fi
 
 # ---------- caddy ----------
 
@@ -142,6 +164,10 @@ curl -sSf http://127.0.0.1:8444/health
 echo
 curl -sSf http://127.0.0.1:8443/health
 echo
+if sudo systemctl is-active scut-register.service >/dev/null 2>&1; then
+    curl -sSf http://127.0.0.1:8445/scut/v1/health
+    echo
+fi
 
 log 'install complete'
 echo
@@ -149,3 +175,4 @@ echo "events token for scut-monitor:  sudo cat $SCUT_ETC/relay.env | grep SCUT_R
 echo "public endpoints after DNS + Caddy cert issuance (may take a minute):"
 echo "  https://relay.openscut.ai/health"
 echo "  https://resolver.openscut.ai/scut/v1/resolve?ref=scut%3A%2F%2F8453%2F0x199b48e27a28881502b251b0068f388ce750feff%2F1"
+echo "  https://register.openscut.ai/scut/v1/health"

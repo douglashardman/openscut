@@ -64,3 +64,7 @@ export {
   type ScutClientOptions,
   type SendResult,
 } from './client.js';
+export {
+  decodeSiiDocumentFromDataUri,
+  encodeSiiDocumentToDataUri,
+} from './sii-data-uri.js';

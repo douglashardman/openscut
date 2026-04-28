@@ -1,4 +1,4 @@
-# Caddy config for relay.openscut.ai and resolver.openscut.ai.
+# Caddy config for relay, resolver, and register on openscut.ai.
 # Installed by ops/scripts/install.sh at /etc/caddy/Caddyfile.
 # Caddy handles ACME HTTP-01 cert issuance and renewal via Let's Encrypt.
 
@@ -38,6 +38,20 @@ resolver.openscut.ai {
 
     log {
         output file /var/log/caddy/resolver.access.log {
+            roll_size 100mb
+            roll_keep 10
+        }
+        format json
+    }
+}
+
+register.openscut.ai {
+    reverse_proxy 127.0.0.1:8445
+
+    encode gzip zstd
+
+    log {
+        output file /var/log/caddy/register.access.log {
             roll_size 100mb
             roll_keep 10
         }
