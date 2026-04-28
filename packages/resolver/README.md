@@ -22,7 +22,7 @@ Or via the workspace:
 pnpm --filter scut-resolver run start
 ```
 
-Node 20 or newer.
+Node 22 or newer.
 
 ## Endpoint
 

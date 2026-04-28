@@ -10,7 +10,7 @@
 npm install @openscut/core        # or pnpm add / yarn add
 ```
 
-Node 20 or newer. TypeScript source; ships with `.d.ts`.
+Node 22 or newer. TypeScript source; ships with `.d.ts`.
 
 ## API surface
 

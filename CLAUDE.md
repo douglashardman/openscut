@@ -216,7 +216,7 @@ These are locked. Do not re-litigate. If you think something here is wrong, flag
 ### Stack
 
 - **Language:** TypeScript across the board (core lib, relay, resolver, CLI, monitor)
-- **Runtime:** Node 20+ LTS
+- **Runtime:** Node 22+ LTS
 - **Web framework:** Fastify (not Express, not Hono)
 - **Database (relay):** SQLite via `better-sqlite3`
 - **Crypto:** `libsodium-wrappers` for XChaCha20-Poly1305, X25519, Ed25519

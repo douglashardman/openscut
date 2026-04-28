@@ -23,7 +23,7 @@ docker run -p 443:443 \
   openscut/relay:latest
 ```
 
-Node 20 or newer. SQLite (via [`better-sqlite3`](https://www.npmjs.com/package/better-sqlite3)) is the v1 storage backend; PostgreSQL is stubbed for v2.
+Node 22 or newer. SQLite (via [`better-sqlite3`](https://www.npmjs.com/package/better-sqlite3)) is the v1 storage backend; PostgreSQL is stubbed for v2.
 
 ## Endpoints
 

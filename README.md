@@ -185,7 +185,7 @@ Spec is licensed CC-BY-4.0. Reference implementations are MIT.
 | **[`scut-monitor`](packages/monitor/README.md)** | TUI for live envelope observation. SSE-connected, reveals decryptable envelopes with an animation. | [packages/monitor](packages/monitor/README.md) |
 | **`@openscut/agents`** (private) | Demo scenarios and orchestration. | [packages/agents](packages/agents/) |
 
-Stack: TypeScript 5, Node 20+, Fastify, libsodium, viem, ink. Solidity 0.8.24, Foundry.
+Stack: TypeScript 5, Node 22+, Fastify, libsodium, viem, ink. Solidity 0.8.24, Foundry.
 
 ---
 

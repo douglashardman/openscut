@@ -18,7 +18,7 @@ Or from the workspace:
 pnpm --filter scut-monitor run dev -- --relay <url> --token <token> --keys <path> --resolver <url>
 ```
 
-Node 20 or newer. Renders with [ink](https://github.com/vadimdemedes/ink); expects a TTY.
+Node 22 or newer. Renders with [ink](https://github.com/vadimdemedes/ink); expects a TTY.
 
 ## Quickstart
 

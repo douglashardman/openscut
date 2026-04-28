@@ -12,7 +12,7 @@ Per SPEC and practical hygiene, `scut` **never generates, handles, or stores wal
 npm install -g scut           # or: pnpm add -g scut
 ```
 
-Node 20 or newer.
+Node 22 or newer.
 
 ## Quickstart
 
