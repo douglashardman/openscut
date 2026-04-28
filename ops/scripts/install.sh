@@ -101,6 +101,11 @@ sudo chown -R "$(id -u):$(id -g)" \
     packages/register/dist 2>/dev/null || true
 
 pnpm install --frozen-lockfile
+# Force native modules to be (re)built against the current Node ABI.
+# See update.sh for the reasoning; same fix needed here in case a
+# fresh install lands on a droplet whose Node version drifted from
+# what produced the cached prebuild bundle.
+pnpm -r rebuild better-sqlite3
 pnpm --filter @openscut/core run build
 pnpm --filter scut-resolver run build
 pnpm --filter scut-relay run build
@@ -138,9 +143,13 @@ sudo install -m 644 "$SCUT_REPO_DIR/ops/systemd/scut-relay.service" /etc/systemd
 sudo install -m 644 "$SCUT_REPO_DIR/ops/systemd/scut-register.service" /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable scut-resolver.service scut-relay.service scut-register.service
+# `is-active --wait` (Ubuntu 24.04 systemd 255+) blocks until the
+# unit reaches a final state (active or failed), so we don't trip
+# `set -e` by querying during the transient `activating` state.
 sudo systemctl restart scut-resolver.service
-sleep 2
+sudo systemctl is-active --quiet --wait scut-resolver.service
 sudo systemctl restart scut-relay.service
+sudo systemctl is-active --quiet --wait scut-relay.service
 # Only start scut-register if the wallet key has been filled in...
 # starting it before that just produces an immediate restart loop.
 # /etc/scut/register.env is 0640 root:scut and the operator running this
@@ -155,6 +164,7 @@ if sudo test -f "$SCUT_ETC/register.env"; then
 fi
 if $register_key_configured; then
     sudo systemctl restart scut-register.service
+    sudo systemctl is-active --quiet --wait scut-register.service
 else
     log 'skipping scut-register start: wallet key not yet configured'
 fi

@@ -28,6 +28,18 @@ sudo chown -R "$(id -u):$(id -g)" \
 
 log 'installing deps + rebuilding'
 pnpm install --frozen-lockfile
+# Force native modules to be (re)built against the current Node ABI.
+# pnpm install --frozen-lockfile reports "Already up to date" on
+# repeat runs and skips install scripts entirely, which means a Node
+# version change on the droplet does NOT trigger better-sqlite3 to
+# recompile. Explicit rebuild covers that case. The -r is required
+# because better-sqlite3 is a transitive dep of relay + register,
+# not a direct dep of the workspace root.
+#
+# The rebuild is gated by the `pnpm.onlyBuiltDependencies` allowlist
+# in the workspace root package.json; without that, pnpm 9 silently
+# refuses to run install scripts even when explicitly invoked.
+pnpm -r rebuild better-sqlite3
 pnpm --filter @openscut/core run build
 pnpm --filter scut-resolver run build
 pnpm --filter scut-relay run build
@@ -48,10 +60,18 @@ if ! sudo test -f "$SCUT_ETC/register.env"; then
 fi
 
 log 'restarting services'
+# `is-active --wait` (Ubuntu 24.04 systemd 255+) blocks until the
+# unit reaches a final state (active or failed) so we don't trip
+# `set -e` by querying during the transient `activating` state.
+# Without --wait, `restart` returns as soon as the start verb is
+# accepted, which is well before the service is actually up; an
+# immediate is-active call against scut-register specifically can
+# catch it during RPC-getBalance startup.
 sudo systemctl restart scut-resolver.service
-sleep 2
+sudo systemctl is-active --quiet --wait scut-resolver.service
 sudo systemctl restart scut-relay.service
-sleep 2
+sudo systemctl is-active --quiet --wait scut-relay.service
+
 # /etc/scut/register.env is 0640 root:scut and the operator running this
 # script is not in the scut group, so the grep needs sudo. Default to
 # "not configured" if we cannot prove otherwise so we never start a
@@ -64,13 +84,10 @@ if sudo test -f "$SCUT_ETC/register.env"; then
 fi
 if $register_key_configured; then
     sudo systemctl restart scut-register.service
-    sleep 2
-    sudo systemctl is-active scut-register.service
+    sudo systemctl is-active --quiet --wait scut-register.service
 else
     log 'skipping scut-register restart: wallet key not yet configured'
 fi
-sudo systemctl is-active scut-resolver.service
-sudo systemctl is-active scut-relay.service
 
 # Drop the SCUT services fragment into /etc/caddy/conf.d/. The main
 # /etc/caddy/Caddyfile is owned by the droplet operator (not this
