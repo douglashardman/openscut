@@ -18,7 +18,7 @@ SCUT_REPO_DIR=${SCUT_REPO_DIR:-/opt/openscut}
 SCUT_ETC=${SCUT_ETC:-/etc/scut}
 SCUT_LIB=${SCUT_LIB:-/var/lib/scut}
 NODE_MAJOR=20
-PNPM_VERSION=8.15.9
+PNPM_VERSION=9.15.9
 
 log() { printf '\n==> %s\n' "$*"; }
 
